@@ -366,7 +366,20 @@ test('Station Summary report studio exports isolated PowerPoint-ready previews',
   assert.match(ledger, /data-report-section="tissue"/)
   assert.match(ledger, /data-report-section="recycle-monthly"/)
   assert.match(styles, /\.report-studio-modal/)
-  assert.match(styles, /--studio-title-size/)
+  assert.match(styles, /--studio-table-size/)
+})
+
+test('Report Studio scales chart and table text, keeps titles unchanged, and supports table colors', () => {
+  const ledger = fs.readFileSync(new URL('../src/components/AnnualLedger.jsx', import.meta.url), 'utf8')
+  const styles = fs.readFileSync(new URL('../src/styles.css', import.meta.url), 'utf8')
+  assert.match(ledger, /REPORT_TABLE_THEMES/)
+  assert.match(ledger, /ตัวอักษรกราฟ\/ตาราง/)
+  assert.match(ledger, /สีตาราง/)
+  assert.match(ledger, /section==='recycle-monthly'\?240:320/)
+  assert.doesNotMatch(styles, /report-studio-clone h3[^\n]*studio-title-size/)
+  assert.match(styles, /report-studio-clone th/)
+  assert.match(styles, /recharts-legend-item-text/)
+  assert.match(styles, /--studio-table-header/)
 })
 
 test('monthly Station Summary keeps sections 5-6 on one selected month and places the recycle chart above its table', () => {

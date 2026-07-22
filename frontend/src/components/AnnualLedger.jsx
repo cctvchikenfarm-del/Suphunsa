@@ -43,17 +43,26 @@ const REPORT_STUDIO_PRESETS = {
   a4:{ label:'A4 แนวนอน', width:1120, height:792 },
   compact:{ label:'กะทัดรัดสำหรับครอป', width:960, height:640 }
 }
+const REPORT_TABLE_THEMES = {
+  teal:{ label:'เขียวอมฟ้า', header:'#0f766e', headerEnd:'#0891b2', stripe:'#f0fdfa', border:'#99f6e4' },
+  blue:{ label:'น้ำเงิน', header:'#1d4ed8', headerEnd:'#2563eb', stripe:'#eff6ff', border:'#bfdbfe' },
+  green:{ label:'เขียว', header:'#15803d', headerEnd:'#16a34a', stripe:'#f0fdf4', border:'#bbf7d0' },
+  orange:{ label:'ส้ม', header:'#c2410c', headerEnd:'#ea580c', stripe:'#fff7ed', border:'#fed7aa' },
+  slate:{ label:'เทาเข้ม', header:'#334155', headerEnd:'#475569', stripe:'#f8fafc', border:'#cbd5e1' }
+}
 
 export function ReportStudio({ section, onClose }) {
   const [presetKey,setPresetKey]=useState('wide')
   const [contentMode,setContentMode]=useState('both')
   const [fontScale,setFontScale]=useState(1)
-  const [chartSize,setChartSize]=useState(320)
+  const [chartSize,setChartSize]=useState(section==='recycle-monthly'?240:320)
+  const [tableThemeKey,setTableThemeKey]=useState('teal')
   const [exporting,setExporting]=useState('')
   const [exportError,setExportError]=useState('')
   const [readyFile,setReadyFile]=useState(null)
   const previewRef=useRef(null)
   const preset=REPORT_STUDIO_PRESETS[presetKey]
+  const tableTheme=REPORT_TABLE_THEMES[tableThemeKey]
 
   useEffect(()=>{
     const source=document.querySelector(`[data-report-section="${section}"]`)
@@ -63,10 +72,12 @@ export function ReportStudio({ section, onClose }) {
     clone.classList.add('report-studio-clone')
     clone.querySelectorAll('.ledger-section-controls,button').forEach(node=>node.remove())
     Object.assign(clone.style,{width:'100%',height:'100%',margin:'0',gridColumn:'auto',boxShadow:'none',border:'0',borderRadius:'0'})
-    clone.style.setProperty('--studio-title-size',`${Math.round(18*fontScale)}px`)
-    clone.style.setProperty('--studio-body-size',`${Math.round(12*fontScale)}px`)
     clone.style.setProperty('--studio-table-size',`${Math.round(13*fontScale)}px`)
     clone.style.setProperty('--studio-chart-size',`${Math.round(12*fontScale)}px`)
+    clone.style.setProperty('--studio-table-header',tableTheme.header)
+    clone.style.setProperty('--studio-table-header-end',tableTheme.headerEnd)
+    clone.style.setProperty('--studio-table-stripe',tableTheme.stripe)
+    clone.style.setProperty('--studio-table-border',tableTheme.border)
     if(contentMode==='chart') clone.querySelectorAll('.table-container,.monthly-recycle-table').forEach(node=>node.remove())
     if(contentMode==='table') {
       clone.querySelectorAll('.recharts-responsive-container,.monthly-recycle-chart').forEach(node=>{
@@ -82,7 +93,7 @@ export function ReportStudio({ section, onClose }) {
       })
     }
     previewRef.current.replaceChildren(clone)
-  },[section,presetKey,contentMode,fontScale,chartSize])
+  },[section,presetKey,contentMode,fontScale,chartSize,tableTheme])
   useEffect(()=>{document.body.classList.add('ledger-popup-open');return()=>document.body.classList.remove('ledger-popup-open')},[])
   useEffect(()=>()=>{if(readyFile?.url)URL.revokeObjectURL(readyFile.url)},[readyFile])
 
@@ -100,7 +111,8 @@ export function ReportStudio({ section, onClose }) {
       <div><strong>เตรียมภาพรายงาน</strong><span>ปรับเฉพาะไฟล์ส่งออก ไม่กระทบหน้าสถานี</span></div>
       <label>ขนาด<select value={presetKey} onChange={event=>setPresetKey(event.target.value)}>{Object.entries(REPORT_STUDIO_PRESETS).map(([key,item])=><option value={key} key={key}>{item.label}</option>)}</select></label>
       <label>เนื้อหา<select value={contentMode} onChange={event=>setContentMode(event.target.value)}><option value="both">กราฟและตาราง</option><option value="chart">กราฟอย่างเดียว</option><option value="table">ตารางอย่างเดียว</option></select></label>
-      <label>ตัวอักษร<input type="range" min="0.9" max="1.35" step="0.05" value={fontScale} onChange={event=>setFontScale(Number(event.target.value))}/><small>{Math.round(fontScale*100)}%</small></label>
+      <label>ตัวอักษรกราฟ/ตาราง<input type="range" min="0.9" max="1.6" step="0.05" value={fontScale} onChange={event=>setFontScale(Number(event.target.value))}/><small>{Math.round(fontScale*100)}%</small></label>
+      {contentMode!=='chart'&&<label>สีตาราง<select value={tableThemeKey} onChange={event=>setTableThemeKey(event.target.value)}>{Object.entries(REPORT_TABLE_THEMES).map(([key,item])=><option value={key} key={key}>{item.label}</option>)}</select></label>}
       {contentMode!=='table'&&<label>ความสูงกราฟ<input type="range" min="220" max="440" step="20" value={chartSize} onChange={event=>setChartSize(Number(event.target.value))}/><small>{chartSize}px</small></label>}
       <div className="report-studio-actions"><button type="button" className="btn secondary small" onClick={exportSvg} disabled={!!exporting}>{exporting==='svg'?'กำลังสร้าง…':'สร้าง SVG'}</button><button type="button" className="btn secondary small" onClick={exportPng} disabled={!!exporting}>{exporting==='png'?'กำลังสร้าง…':'สร้าง PNG 3x'}</button><button type="button" className="btn primary small" onClick={exportPpt} disabled={!!exporting}>{exporting==='ppt'?'กำลังสร้าง…':'สร้าง PowerPoint'}</button><button type="button" className="btn danger small" onClick={onClose}>ปิด</button></div>
       {readyFile&&<a className="btn primary report-studio-download" href={readyFile.url} download={readyFile.name}>ดาวน์โหลดไฟล์ที่สร้างแล้ว: {readyFile.name}</a>}
@@ -265,7 +277,7 @@ export default function AnnualLedger({ permissions = [] }) {
   const closeSectionPopup = () => setExpandedSection(null)
   const getSectionLayout = section => sectionLayouts[section] || 'full'
   const setSectionLayout = (section, layout) => setSectionLayouts(current => ({ ...current, [section]: layout }))
-  const getSectionGraphHeight = section => ({ compact: 240, standard: 320, tall: 440 }[sectionGraphHeights[section] || 'standard'])
+  const getSectionGraphHeight = section => ({ compact: 240, standard: 320, tall: 440 }[sectionGraphHeights[section] || (section === 'recycle-monthly' ? 'compact' : 'standard')])
   const setSectionGraphHeight = (section, height) => setSectionGraphHeights(current => ({ ...current, [section]: height }))
   const getSectionGridColumn = section => {
     if (expandedSection === section) return '1 / -1'
@@ -298,7 +310,7 @@ export default function AnnualLedger({ permissions = [] }) {
         </label>
       )}
       <label>ความสูงกราฟ
-        <select value={sectionGraphHeights[section] || 'standard'} onChange={event => setSectionGraphHeight(section, event.target.value)}>
+        <select value={sectionGraphHeights[section] || (section === 'recycle-monthly' ? 'compact' : 'standard')} onChange={event => setSectionGraphHeight(section, event.target.value)}>
           <option value="compact">เตี้ย</option>
           <option value="standard">มาตรฐาน</option>
           <option value="tall">สูง</option>
