@@ -1,0 +1,8 @@
+backend/.env
+frontend/.env
+*.zip
+**/node_modules/
+**/__pycache__/
+frontend/dist/
+uploads/
+*.log

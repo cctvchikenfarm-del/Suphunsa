@@ -1,0 +1,76 @@
+services:
+  - type: web
+    name: ckap-backend
+    runtime: node
+    rootDir: backend
+    buildCommand: npm ci && python3 -m pip install -r requirements.txt
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: AI_INSIGHT_API_URL
+        sync: false
+      - key: AI_INSIGHT_API_KEY
+        sync: false
+      - key: AI_INSIGHT_MODEL
+        sync: false
+      - key: MONTHLY_OCR_API_URL
+        sync: false
+      - key: MONTHLY_OCR_API_KEY
+        sync: false
+      - key: MONTHLY_OCR_MODEL
+        sync: false
+      - key: PYTHON_EXECUTABLE
+        value: python3
+      - key: AUTOMATION_RUNNER_ENABLED
+        value: "false"
+
+  - type: web
+    name: ckap-frontend
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_BASE_URL
+        sync: false
+      - key: VITE_SUPABASE_URL
+        sync: false
+      - key: VITE_SUPABASE_ANON_KEY
+        sync: false
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
+  - type: cron
+    name: ckap-automation
+    runtime: node
+    rootDir: backend
+    schedule: "*/15 * * * *"
+    buildCommand: npm ci
+    startCommand: npm run automation:run
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: AI_INSIGHT_API_URL
+        sync: false
+      - key: AI_INSIGHT_API_KEY
+        sync: false
+      - key: AI_INSIGHT_MODEL
+        sync: false
