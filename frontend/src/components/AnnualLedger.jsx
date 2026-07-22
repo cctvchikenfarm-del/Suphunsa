@@ -75,7 +75,7 @@ export function ReportStudio({ section, onClose, initialChartSize = 320, onChart
         const clone=source.cloneNode(true)
         clone.classList.remove('ledger-section-modal')
         clone.classList.add('report-studio-clone')
-        clone.querySelectorAll('.ledger-section-controls,button').forEach(node=>node.remove())
+        clone.querySelectorAll('.ledger-section-controls, .chart-style-card, button').forEach(node=>node.remove())
         Object.assign(clone.style,{width:'100%',height:'100%',margin:'0',gridColumn:'auto',boxShadow:'none',border:'0',borderRadius:'0'})
         clone.style.setProperty('--studio-table-size',`${Math.round(13*fontScale)}px`)
         clone.style.setProperty('--studio-chart-size',`${Math.round(12*fontScale)}px`)
@@ -97,7 +97,7 @@ export function ReportStudio({ section, onClose, initialChartSize = 320, onChart
             svg.style.height='100%'
           })
         })
-        if(contentMode==='table') chartFrames.forEach(node=>node.remove())
+        if(contentMode==='table') clone.querySelectorAll('.custom-chart-preview, .monthly-recycle-chart, .report-chart-frame').forEach(node=>node.remove())
         previewRef.current.replaceChildren(clone)
       })
     })
