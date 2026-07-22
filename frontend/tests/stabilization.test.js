@@ -389,6 +389,9 @@ test('Switching to accumulated yearly reports keeps the selected year and compac
   assert.match(ledger, /setSummaryMonthsCount\(12\)/)
   assert.match(ledger, /onClick=\{\(\) => changeViewMode\('yearly'\)\}/)
   assert.match(ledger, /section === 'recycle-monthly' \|\| section === 'recycle'/)
+  assert.match(ledger, /placeholderData: previousData => previousData/)
+  assert.match(ledger, /isFetching && !isLoading/)
+  assert.match(ledger, /กำลังอัปเดตข้อมูล โดยคงรายงานเดิมไว้/)
 })
 
 test('Report graph height targets every chart frame and table cells keep one border grid', () => {

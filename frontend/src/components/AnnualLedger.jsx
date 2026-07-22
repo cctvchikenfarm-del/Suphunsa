@@ -189,10 +189,11 @@ export default function AnnualLedger({ permissions = [] }) {
   const [summaryEndYear, summaryEndMonth] = summaryLastMonth.split('-').map(Number)
   const startDate = viewMode === 'yearly' ? `${summaryStartMonth}-01` : `${selectedCE}-01-01`
   const endDate = viewMode === 'yearly' ? `${summaryLastMonth}-${String(new Date(summaryEndYear, summaryEndMonth, 0).getDate()).padStart(2, '0')}` : `${selectedCE}-12-31`
-  const { data: entriesData = [], isLoading } = useQuery({
+  const { data: entriesData = [], isLoading, isFetching } = useQuery({
     queryKey: ['entries', 'summary-ledger', startDate, endDate],
     queryFn: () => apiFetch(`/api/entries?startDate=${startDate}&endDate=${endDate}`),
     enabled: !!selectedCE,
+    placeholderData: previousData => previousData,
     refetchOnMount: 'always',
     refetchOnWindowFocus: true
   })
@@ -1856,6 +1857,7 @@ export default function AnnualLedger({ permissions = [] }) {
                   {summaryMonthsCount <= 4 ? 'กราฟแท่ง · เปรียบเทียบ 1–4 เดือน' : 'กราฟเส้น · ดูแนวโน้มมากกว่า 4 เดือน'}
                 </div>
               </>}
+              {isFetching && !isLoading && <div className="chart-mode-badge ledger-refresh-badge" role="status"><RefreshCw size={14} /> กำลังอัปเดตข้อมูล โดยคงรายงานเดิมไว้</div>}
             </div>
           </div>
 
