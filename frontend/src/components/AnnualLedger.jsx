@@ -79,12 +79,24 @@ export function ReportStudio({ section, onClose, initialChartSize = 320, onChart
         Object.assign(clone.style,{width:'100%',height:'100%',margin:'0',gridColumn:'auto',boxShadow:'none',border:'0',borderRadius:'0'})
         clone.style.setProperty('--studio-table-size',`${Math.round(13*fontScale)}px`)
         clone.style.setProperty('--studio-chart-size',`${Math.round(12*fontScale)}px`)
+        clone.style.setProperty('--studio-chart-frame-height',`${chartSize}px`)
         clone.style.setProperty('--studio-table-header',tableTheme.header)
         clone.style.setProperty('--studio-table-header-end',tableTheme.headerEnd)
         clone.style.setProperty('--studio-table-stripe',tableTheme.stripe)
         clone.style.setProperty('--studio-table-border',tableTheme.border)
         if(contentMode==='chart') clone.querySelectorAll('.table-container,.monthly-recycle-table').forEach(node=>node.remove())
         const chartFrames=clone.querySelectorAll('.report-chart-frame')
+        chartFrames.forEach(frame=>{
+          frame.style.height=`${chartSize}px`
+          frame.querySelectorAll('.recharts-responsive-container,.recharts-wrapper').forEach(container=>{
+            container.style.height='100%'
+            container.style.maxHeight='100%'
+          })
+          frame.querySelectorAll('svg.recharts-surface').forEach(svg=>{
+            svg.setAttribute('height','100%')
+            svg.style.height='100%'
+          })
+        })
         if(contentMode==='table') chartFrames.forEach(node=>node.remove())
         previewRef.current.replaceChildren(clone)
       })
@@ -1626,7 +1638,12 @@ export default function AnnualLedger({ permissions = [] }) {
   // ==========================================
   const monthlyRecycleSaleData = useMemo(() => {
     const targetMonthStr = `${selectedCE}-${selectedMonth}`
-    const monthEntries = entries.filter(e => e.module === 'recycle' && String(e.period_month || '').slice(0, 7) === targetMonthStr)
+    const monthEntries = entries.filter(e => {
+      if (e.module !== 'recycle') return false
+      return viewMode === 'monthly'
+        ? String(e.period_month || '').slice(0, 7) === targetMonthStr
+        : feedReportMonths.includes(String(e.period_month || e.entry_date || '').slice(0, 7))
+    })
     
     const recycleCategories = new Map(
       categories.filter(category => category.module === 'recycle').map(category => [category.code, category])
@@ -1679,7 +1696,7 @@ export default function AnnualLedger({ permissions = [] }) {
     }))
     
     return { rows, totalWeight, totalAmount, overallAvgPrice, chartData }
-  }, [entries, categories, selectedCE, selectedMonth])
+  }, [entries, categories, selectedCE, selectedMonth, viewMode, feedReportMonths])
 
   // ==========================================
   // SECTION 8: รายการขายเศษวัสดุสะสม (amount)
@@ -2760,88 +2777,92 @@ export default function AnnualLedger({ permissions = [] }) {
           {/* ==========================================
               SECTION 7: รายการขายเศษวัสดุประจำเดือน (High-Fidelity)
               ========================================== */}
-          {viewMode === 'monthly' && (
-            <div data-report-section="recycle-monthly" className={`card ledger-analysis-card ${expandedSection === 'recycle-monthly' ? 'ledger-section-modal' : ''}`} style={{ gridColumn:getSectionGridColumn('recycle-monthly'), ...getSectionCardStyle('recycle-monthly'), padding: '24px', borderRadius: '24px', boxShadow: '0 4px 20px rgba(0,0,0,0.03)' }}>
-              <div style={{ display: 'flex', justifyContent:'space-between', alignItems: 'center', gap: '10px', marginBottom: '18px', borderBottom: '1px solid #f1f5f9', paddingBottom: '12px', flexWrap:'wrap' }}>
-                <DollarSign size={22} style={{ color: '#d97706' }} />
-                <div>
-                  <h3 style={{ fontSize: '16px', fontWeight: 'bold', color: '#1e293b', margin: 0 }}>6. รายละเอียดการขายเศษวัสดุรีไซเคิลประจำเดือน ({MONTHS_OPTIONS.find(m => m.value === selectedMonth)?.label})</h3>
-                  <p style={{ fontSize: '12.5px', color: '#64748b', margin: 0 }}>รายการวัสดุรีไซเคิล น้ำหนัก อัตราค่าประเมิน และยอดรวมรายรับของเดือนในรอบบันทึก</p>
-                </div>
-                {renderSectionControls('recycle-monthly')}
+          <div data-report-section="recycle-monthly" className={`card ledger-analysis-card ${expandedSection === 'recycle-monthly' ? 'ledger-section-modal' : ''}`} style={{ gridColumn:getSectionGridColumn('recycle-monthly'), ...getSectionCardStyle('recycle-monthly'), padding: '24px', borderRadius: '24px', boxShadow: '0 4px 20px rgba(0,0,0,0.03)' }}>
+            <div style={{ display: 'flex', justifyContent:'space-between', alignItems: 'center', gap: '10px', marginBottom: '18px', borderBottom: '1px solid #f1f5f9', paddingBottom: '12px', flexWrap:'wrap' }}>
+              <DollarSign size={22} style={{ color: '#d97706' }} />
+              <div>
+                <h3 style={{ fontSize: '16px', fontWeight: 'bold', color: '#1e293b', margin: 0 }}>
+                  6. รายละเอียดการขายเศษวัสดุรีไซเคิล {viewMode === 'monthly' ? `ประจำเดือน (${MONTHS_OPTIONS.find(m => m.value === selectedMonth)?.label})` : `สะสม (${summaryMonthLabels[0]}–${summaryMonthLabels.at(-1)})`}
+                </h3>
+                <p style={{ fontSize: '12.5px', color: '#64748b', margin: 0 }}>
+                  {viewMode === 'monthly'
+                    ? 'รายการวัสดุรีไซเคิล น้ำหนัก อัตราค่าประเมิน และยอดรวมรายรับของเดือนในรอบบันทึก'
+                    : 'สรุปรายการวัสดุรีไซเคิล น้ำหนัก อัตราค่าประเมิน และยอดรวมรายรับสะสมตาม Master Data'}
+                </p>
               </div>
+              {renderSectionControls('recycle-monthly')}
+            </div>
 
-              <div className="monthly-recycle-report-layout" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '24px' }}>
-                <div className="table-container monthly-recycle-table" style={{ order: 2 }}>
-                  <table className="table" style={{ fontSize: '13px', width: '100%' }}>
-                    <thead>
-                      <tr style={{ background: '#f8fafc' }}>
-                        <th>รายการ</th>
-                        <th style={{ textAlign: 'right' }}>จำนวน (กก.)</th>
-                        <th style={{ textAlign: 'right' }}>ราคาหน่วย (บาท)</th>
-                        <th style={{ textAlign: 'right' }}>จำนวนเงิน (บาท)</th>
+            <div className="monthly-recycle-report-layout" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '24px' }}>
+              <div className="table-container monthly-recycle-table" style={{ order: 2 }}>
+                <table className="table" style={{ fontSize: '13px', width: '100%' }}>
+                  <thead>
+                    <tr style={{ background: '#f8fafc' }}>
+                      <th>รายการ</th>
+                      <th style={{ textAlign: 'right' }}>จำนวน (กก.)</th>
+                      <th style={{ textAlign: 'right' }}>ราคาหน่วย (บาท)</th>
+                      <th style={{ textAlign: 'right' }}>จำนวนเงิน (บาท)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {monthlyRecycleSaleData.rows.map((row, idx) => (
+                      <tr key={idx}>
+                        <td style={{ fontWeight: 'bold' }}>{row.name}</td>
+                        <td style={{ textAlign: 'right' }}>{formatNumber(row.weight, 1)}</td>
+                        <td style={{ textAlign: 'right' }}>{row.weight > 0 ? formatNumber(row.avgPrice, 2) : '0'}</td>
+                        <td style={{ textAlign: 'right', fontWeight: 'bold', color: '#10b981' }}>{formatNumber(row.amount, 2)}</td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {monthlyRecycleSaleData.rows.map((row, idx) => (
-                        <tr key={idx}>
-                          <td style={{ fontWeight: 'bold' }}>{row.name}</td>
-                          <td style={{ textAlign: 'right' }}>{formatNumber(row.weight, 1)}</td>
-                          <td style={{ textAlign: 'right' }}>{row.weight > 0 ? formatNumber(row.avgPrice, 2) : '0'}</td>
-                          <td style={{ textAlign: 'right', fontWeight: 'bold', color: '#10b981' }}>{formatNumber(row.amount, 2)}</td>
-                        </tr>
-                      ))}
-                      {/* Total Row showing overall average price */}
-                      <tr style={{ background: '#f8fafc', fontWeight: 'bold' }}>
-                        <td>รวม / ค่าเฉลี่ยรวม</td>
-                        <td style={{ textAlign: 'right', color: 'var(--primary-color)' }}>{formatNumber(monthlyRecycleSaleData.totalWeight, 1)}</td>
-                        <td style={{ textAlign: 'right', color: '#16a34a', background: '#f0fdf4' }}>
-                          {formatNumber(monthlyRecycleSaleData.overallAvgPrice, 2)} <span style={{ fontSize: '10px', fontWeight: 'normal', color: '#64748b' }}>บ./กก.</span>
-                        </td>
-                        <td style={{ textAlign: 'right', color: '#dc2626' }}>{formatNumber(monthlyRecycleSaleData.totalAmount, 2)}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-                
-                <div className="monthly-recycle-chart report-chart-frame" style={{ height: `${getSectionGraphHeight('recycle-monthly')}px`, order: 1 }}>
-                  <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#64748b', display: 'block', textAlign: 'center', marginBottom: '8px' }}>
-                    จำนวนเงิน (บาท)
-                  </span>
-                  <div
-                    aria-label="คำอธิบายสีรายการรีไซเคิล"
-                    style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap', gap: '6px 16px', minHeight: '34px', margin: '0 12px 6px' }}
-                  >
-                    {monthlyRecycleSaleData.chartData.map(entry => (
-                      <span key={entry.name} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#475569', fontSize: '11px', whiteSpace: 'nowrap' }}>
-                        <span aria-hidden="true" style={{ width: '10px', height: '10px', borderRadius: '2px', background: entry.fill, flex: '0 0 auto' }} />
-                        {entry.name}
-                      </span>
                     ))}
-                  </div>
-                  <ResponsiveContainer width="100%" height="78%">
-                    <BarChart data={monthlyRecycleSaleData.chartData} margin={{ top: 20, right: 10, left: -10, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                      <XAxis dataKey="name" tick={false} axisLine={{ stroke: '#cbd5e1' }} tickLine={false} height={8} />
-                      <YAxis style={{ fontSize: '12px', fill: '#1e293b', fontWeight: 'bold' }} tickLine={{ stroke: '#cbd5e1' }} axisLine={{ stroke: '#cbd5e1' }} />
-                      <Tooltip formatter={(v) => [`${v.toLocaleString()} บาท`, 'ยอดเงิน']} labelFormatter={(label) => `รายการ: ${label}`} contentStyle={{ borderRadius: '12px', fontSize: '13px', fontWeight: 'bold', color: '#0f172a' }} />
-                      <Bar dataKey="จำนวนเงิน (บาท)" radius={[4, 4, 0, 0]}>
-                        {monthlyRecycleSaleData.chartData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.fill} />
-                        ))}
-                        <LabelList 
-                          dataKey="จำนวนเงิน (บาท)" 
-                          position="top" 
-                          style={{ fontSize: '10px', fill: '#1e293b', fontWeight: 'bold' }} 
-                          formatter={(v) => v > 0 ? formatNumber(v, 1) : '0'} 
-                        />
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
+                    {/* Total Row showing overall average price */}
+                    <tr style={{ background: '#f8fafc', fontWeight: 'bold' }}>
+                      <td>รวม / ค่าเฉลี่ยรวม</td>
+                      <td style={{ textAlign: 'right', color: 'var(--primary-color)' }}>{formatNumber(monthlyRecycleSaleData.totalWeight, 1)}</td>
+                      <td style={{ textAlign: 'right', color: '#16a34a', background: '#f0fdf4' }}>
+                        {formatNumber(monthlyRecycleSaleData.overallAvgPrice, 2)} <span style={{ fontSize: '10px', fontWeight: 'normal', color: '#64748b' }}>บ./กก.</span>
+                      </td>
+                      <td style={{ textAlign: 'right', color: '#dc2626' }}>{formatNumber(monthlyRecycleSaleData.totalAmount, 2)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              
+              <div className="monthly-recycle-chart report-chart-frame" style={{ height: `${getSectionGraphHeight('recycle-monthly')}px`, order: 1 }}>
+                <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#64748b', display: 'block', textAlign: 'center', marginBottom: '8px' }}>
+                  จำนวนเงิน (บาท)
+                </span>
+                <div
+                  aria-label="คำอธิบายสีรายการรีไซเคิล"
+                  style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap', gap: '6px 16px', minHeight: '34px', margin: '0 12px 6px' }}
+                >
+                  {monthlyRecycleSaleData.chartData.map(entry => (
+                    <span key={entry.name} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#475569', fontSize: '11px', whiteSpace: 'nowrap' }}>
+                      <span aria-hidden="true" style={{ width: '10px', height: '10px', borderRadius: '2px', background: entry.fill, flex: '0 0 auto' }} />
+                      {entry.name}
+                    </span>
+                  ))}
                 </div>
+                <ResponsiveContainer width="100%" height="78%">
+                  <BarChart data={monthlyRecycleSaleData.chartData} margin={{ top: 20, right: 10, left: -10, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                    <XAxis dataKey="name" tick={false} axisLine={{ stroke: '#cbd5e1' }} tickLine={false} height={8} />
+                    <YAxis style={{ fontSize: '12px', fill: '#1e293b', fontWeight: 'bold' }} tickLine={{ stroke: '#cbd5e1' }} axisLine={{ stroke: '#cbd5e1' }} />
+                    <Tooltip formatter={(v) => [`${v.toLocaleString()} บาท`, 'ยอดเงิน']} labelFormatter={(label) => `รายการ: ${label}`} contentStyle={{ borderRadius: '12px', fontSize: '13px', fontWeight: 'bold', color: '#0f172a' }} />
+                    <Bar dataKey="จำนวนเงิน (บาท)" radius={[4, 4, 0, 0]}>
+                      {monthlyRecycleSaleData.chartData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.fill} />
+                      ))}
+                      <LabelList 
+                        dataKey="จำนวนเงิน (บาท)" 
+                        position="top" 
+                        style={{ fontSize: '10px', fill: '#1e293b', fontWeight: 'bold' }} 
+                        formatter={(v) => v > 0 ? formatNumber(v, 1) : '0'} 
+                      />
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
             </div>
-          )}
+          </div>
 
           {/* ==========================================
               SECTION 8: รายการขายเศษวัสดุสะสม (amount)

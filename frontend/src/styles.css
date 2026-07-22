@@ -619,6 +619,10 @@ tr:last-child td { border-bottom: 0; }
 .report-studio-clone .recharts-legend-item-text,
 .report-studio-clone .monthly-recycle-chart > span,
 .report-studio-clone .monthly-recycle-chart [aria-label] span { font-size:var(--studio-chart-size,12px) !important; }
+.report-studio-clone .report-chart-frame { height:var(--studio-chart-frame-height,320px) !important; display:flex !important; flex-direction:column !important; }
+.report-studio-clone .recharts-responsive-container,
+.report-studio-clone .recharts-wrapper { height:100% !important; max-height:100% !important; flex:1 1 auto !important; }
+.report-studio-clone .recharts-surface { width:100% !important; height:100% !important; }
 .report-studio-clone .table { border-color:var(--studio-table-border,#99f6e4) !important; }
 .report-studio-clone .table thead th,
 .report-studio-clone .table-container thead th:first-child { background:linear-gradient(135deg,var(--studio-table-header,#0f766e),var(--studio-table-header-end,#0891b2)) !important; }
