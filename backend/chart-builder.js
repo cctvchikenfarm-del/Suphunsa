@@ -95,7 +95,7 @@ function aggregateChartRows({ rows = [], requestedSeries = [], metric = 'weight_
     metric,
     group_by: groupBy,
     has_data: hasData,
-    compatible_units: !activeSeries.some(item => item.mixed_units) && activeUnits.length <= 1,
+    compatible_units: !activeSeries.some(item => item.mixed_units),
     units: activeUnits,
     series: resultSeries,
     points
