@@ -92,7 +92,7 @@ export function ReportStudio({ section, onClose, initialChartSize = 320, onChart
             container.style.height='100%'
             container.style.maxHeight='100%'
           })
-          frame.querySelectorAll('svg.recharts-surface').forEach(svg=>{
+          frame.querySelectorAll('.recharts-wrapper > svg.recharts-surface').forEach(svg=>{
             svg.setAttribute('height','100%')
             svg.style.height='100%'
           })
