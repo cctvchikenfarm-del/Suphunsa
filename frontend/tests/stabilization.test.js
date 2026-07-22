@@ -375,11 +375,20 @@ test('Report Studio scales chart and table text, keeps titles unchanged, and sup
   assert.match(ledger, /REPORT_TABLE_THEMES/)
   assert.match(ledger, /ตัวอักษรกราฟ\/ตาราง/)
   assert.match(ledger, /สีตาราง/)
-  assert.match(ledger, /section==='recycle-monthly'\?240:320/)
+  assert.match(ledger, /section==='recycle-monthly'\|\|section==='recycle'\?240:320/)
   assert.doesNotMatch(styles, /report-studio-clone h3[^\n]*studio-title-size/)
   assert.match(styles, /report-studio-clone th/)
   assert.match(styles, /recharts-legend-item-text/)
   assert.match(styles, /--studio-table-header/)
+})
+
+test('Switching to accumulated yearly reports keeps the selected year and compact recycle summary visible', () => {
+  const ledger = fs.readFileSync(new URL('../src/components/AnnualLedger.jsx', import.meta.url), 'utf8')
+  assert.match(ledger, /const changeViewMode = mode =>/)
+  assert.match(ledger, /setSummaryStartMonth\(`\$\{selectedCE\}-01`\)/)
+  assert.match(ledger, /setSummaryMonthsCount\(12\)/)
+  assert.match(ledger, /onClick=\{\(\) => changeViewMode\('yearly'\)\}/)
+  assert.match(ledger, /section === 'recycle-monthly' \|\| section === 'recycle'/)
 })
 
 test('monthly Station Summary keeps sections 5-6 on one selected month and places the recycle chart above its table', () => {

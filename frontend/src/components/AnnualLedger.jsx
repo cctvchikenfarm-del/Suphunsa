@@ -55,7 +55,7 @@ export function ReportStudio({ section, onClose }) {
   const [presetKey,setPresetKey]=useState('wide')
   const [contentMode,setContentMode]=useState('both')
   const [fontScale,setFontScale]=useState(1)
-  const [chartSize,setChartSize]=useState(section==='recycle-monthly'?240:320)
+  const [chartSize,setChartSize]=useState(section==='recycle-monthly'||section==='recycle'?240:320)
   const [tableThemeKey,setTableThemeKey]=useState('teal')
   const [exporting,setExporting]=useState('')
   const [exportError,setExportError]=useState('')
@@ -271,13 +271,24 @@ export default function AnnualLedger({ permissions = [] }) {
   const [sectionGraphHeights, setSectionGraphHeights] = useState({})
   const [reportStudioSection,setReportStudioSection]=useState(null)
 
+  const changeViewMode = mode => {
+    setExpandedSection(null)
+    setReportStudioSection(null)
+    if (mode === 'yearly') {
+      setSummaryStartMonth(`${selectedCE}-01`)
+      setSummaryMonthsCount(12)
+    }
+    setViewMode(mode)
+  }
+
   const openSectionPopup = section => {
     setExpandedSection(section)
   }
   const closeSectionPopup = () => setExpandedSection(null)
   const getSectionLayout = section => sectionLayouts[section] || 'full'
   const setSectionLayout = (section, layout) => setSectionLayouts(current => ({ ...current, [section]: layout }))
-  const getSectionGraphHeight = section => ({ compact: 240, standard: 320, tall: 440 }[sectionGraphHeights[section] || (section === 'recycle-monthly' ? 'compact' : 'standard')])
+  const isRecycleReport = section => section === 'recycle-monthly' || section === 'recycle'
+  const getSectionGraphHeight = section => ({ compact: 240, standard: 320, tall: 440 }[sectionGraphHeights[section] || (isRecycleReport(section) ? 'compact' : 'standard')])
   const setSectionGraphHeight = (section, height) => setSectionGraphHeights(current => ({ ...current, [section]: height }))
   const getSectionGridColumn = section => {
     if (expandedSection === section) return '1 / -1'
@@ -310,7 +321,7 @@ export default function AnnualLedger({ permissions = [] }) {
         </label>
       )}
       <label>ความสูงกราฟ
-        <select value={sectionGraphHeights[section] || (section === 'recycle-monthly' ? 'compact' : 'standard')} onChange={event => setSectionGraphHeight(section, event.target.value)}>
+        <select value={sectionGraphHeights[section] || (isRecycleReport(section) ? 'compact' : 'standard')} onChange={event => setSectionGraphHeight(section, event.target.value)}>
           <option value="compact">เตี้ย</option>
           <option value="standard">มาตรฐาน</option>
           <option value="tall">สูง</option>
@@ -1784,7 +1795,7 @@ export default function AnnualLedger({ permissions = [] }) {
               <div style={{ display: 'flex', gap: '4px', background: '#f1f5f9', padding: '4px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
                 <button 
                   type="button"
-                  onClick={() => setViewMode('monthly')}
+                  onClick={() => changeViewMode('monthly')}
                   className={viewMode === 'monthly' ? 'btn primary small' : 'btn ghost small'}
                   style={{ borderRadius: '8px', fontSize: '12.5px', padding: '6px 14px', border: 'none', cursor: 'pointer' }}
                 >
@@ -1792,7 +1803,7 @@ export default function AnnualLedger({ permissions = [] }) {
                 </button>
                 <button 
                   type="button"
-                  onClick={() => setViewMode('yearly')}
+                  onClick={() => changeViewMode('yearly')}
                   className={viewMode === 'yearly' ? 'btn primary small' : 'btn ghost small'}
                   style={{ borderRadius: '8px', fontSize: '12.5px', padding: '6px 14px', border: 'none', cursor: 'pointer' }}
                 >
