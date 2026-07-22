@@ -349,6 +349,21 @@ test('Report cards use stable preset layouts while tables retain a sticky first 
   assert.match(styles, /overflow-x:auto/)
 })
 
+test('Station Summary report studio exports isolated PowerPoint-ready previews', () => {
+  const ledger = fs.readFileSync(new URL('../src/components/AnnualLedger.jsx', import.meta.url), 'utf8')
+  const styles = fs.readFileSync(new URL('../src/styles.css', import.meta.url), 'utf8')
+  assert.match(ledger, /function ReportStudio/)
+  assert.match(ledger, /PowerPoint 16:9/)
+  assert.match(ledger, /PowerPoint 4:3/)
+  assert.match(ledger, /A4 แนวนอน/)
+  assert.match(ledger, /PNG 3x/)
+  assert.match(ledger, /pptxgenjs/)
+  assert.match(ledger, /data-report-section="tissue"/)
+  assert.match(ledger, /data-report-section="recycle-monthly"/)
+  assert.match(styles, /\.report-studio-modal/)
+  assert.match(styles, /--studio-title-size/)
+})
+
 test('monthly Station Summary keeps sections 5-6 on one selected month and places the recycle chart above its table', () => {
   const ledger = fs.readFileSync(new URL('../src/components/AnnualLedger.jsx', import.meta.url), 'utf8')
   assert.match(ledger, /viewMode === 'monthly'[\s\S]*?selectedMonth \? \[`\$\{selectedCE\}-\$\{selectedMonth\}`\] : \[\][\s\S]*?: summaryMonths/)

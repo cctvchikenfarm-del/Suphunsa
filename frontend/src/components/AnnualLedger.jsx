@@ -36,6 +36,92 @@ const normalizeBagCode = value => {
 }
 
 const MONTH_POINT_COLORS = ['#0f766e', '#2563eb', '#d97706', '#dc2626', '#7c3aed', '#0891b2', '#65a30d', '#db2777', '#4f46e5', '#ea580c', '#059669', '#9333ea']
+const REPORT_STUDIO_PRESETS = {
+  wide:{ label:'PowerPoint 16:9', width:1280, height:720 },
+  standard:{ label:'PowerPoint 4:3', width:1024, height:768 },
+  a4:{ label:'A4 แนวนอน', width:1120, height:792 },
+  compact:{ label:'กะทัดรัดสำหรับครอป', width:960, height:640 }
+}
+
+function downloadDataUrl(dataUrl, fileName) {
+  const link=document.createElement('a')
+  link.href=dataUrl
+  link.download=fileName
+  link.click()
+}
+
+function ReportStudio({ section, onClose }) {
+  const [presetKey,setPresetKey]=useState('wide')
+  const [contentMode,setContentMode]=useState('both')
+  const [fontScale,setFontScale]=useState(1)
+  const [chartSize,setChartSize]=useState(320)
+  const [exporting,setExporting]=useState('')
+  const previewRef=useRef(null)
+  const preset=REPORT_STUDIO_PRESETS[presetKey]
+
+  useEffect(()=>{
+    const source=document.querySelector(`[data-report-section="${section}"]`)
+    if(!source||!previewRef.current)return
+    const clone=source.cloneNode(true)
+    clone.classList.remove('ledger-section-modal')
+    clone.classList.add('report-studio-clone')
+    clone.querySelectorAll('.ledger-section-controls,button').forEach(node=>node.remove())
+    Object.assign(clone.style,{width:'100%',height:'100%',margin:'0',gridColumn:'auto',boxShadow:'none',border:'0',borderRadius:'0'})
+    clone.style.setProperty('--studio-title-size',`${Math.round(18*fontScale)}px`)
+    clone.style.setProperty('--studio-body-size',`${Math.round(12*fontScale)}px`)
+    clone.style.setProperty('--studio-table-size',`${Math.round(13*fontScale)}px`)
+    clone.style.setProperty('--studio-chart-size',`${Math.round(12*fontScale)}px`)
+    if(contentMode==='chart') clone.querySelectorAll('.table-container,.monthly-recycle-table').forEach(node=>node.remove())
+    if(contentMode==='table') {
+      clone.querySelectorAll('.recharts-responsive-container,.monthly-recycle-chart').forEach(node=>{
+        let target=node
+        while(target.parentElement&&target.parentElement!==clone&&!target.parentElement.classList.contains('ledger-analysis-content')&&!target.parentElement.classList.contains('monthly-recycle-report-layout')) target=target.parentElement
+        target.remove()
+      })
+    } else {
+      clone.querySelectorAll('.recharts-responsive-container').forEach(node=>{
+        let target=node.parentElement
+        while(target&&target.parentElement&&target.parentElement!==clone&&!target.parentElement.classList.contains('ledger-analysis-content')&&!target.parentElement.classList.contains('monthly-recycle-report-layout')) target=target.parentElement
+        if(target) target.style.height=`${chartSize}px`
+      })
+    }
+    previewRef.current.replaceChildren(clone)
+  },[section,presetKey,contentMode,fontScale,chartSize])
+  useEffect(()=>{document.body.classList.add('ledger-popup-open');return()=>document.body.classList.remove('ledger-popup-open')},[])
+
+  const buildSvg=()=>{
+    const styles=Array.from(document.styleSheets).map(sheet=>{try{return Array.from(sheet.cssRules).map(rule=>rule.cssText).join('\n')}catch{return''}}).join('\n')
+    const markup=new XMLSerializer().serializeToString(previewRef.current)
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${preset.width}" height="${preset.height}" viewBox="0 0 ${preset.width} ${preset.height}"><foreignObject width="100%" height="100%"><div xmlns="http://www.w3.org/1999/xhtml"><style>${styles}</style>${markup}</div></foreignObject></svg>`
+  }
+  const svgDataUrl=svg=>`data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svg)))}`
+  const fileBase=`CKAP-${section}-${presetKey}`
+  const exportSvg=()=>downloadDataUrl(svgDataUrl(buildSvg()),`${fileBase}.svg`)
+  const renderPng=async()=>{
+    const svg=buildSvg(),url=URL.createObjectURL(new Blob([svg],{type:'image/svg+xml;charset=utf-8'}))
+    try{
+      const image=await new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>resolve(img);img.onerror=reject;img.src=url})
+      const canvas=document.createElement('canvas');canvas.width=preset.width*3;canvas.height=preset.height*3
+      const ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(image,0,0,canvas.width,canvas.height)
+      return canvas.toDataURL('image/png')
+    }finally{URL.revokeObjectURL(url)}
+  }
+  const exportPng=async()=>{setExporting('png');try{downloadDataUrl(await renderPng(),`${fileBase}-3x.png`)}finally{setExporting('')}}
+  const exportPpt=async()=>{setExporting('ppt');try{const {default:PptxGenJS}=await import('pptxgenjs');const pptx=new PptxGenJS();pptx.layout=presetKey==='standard'?'LAYOUT_4X3':'LAYOUT_WIDE';pptx.author='CKAP System';const slide=pptx.addSlide();slide.background={color:'FFFFFF'};slide.addImage({data:await renderPng(),x:.15,y:.15,w:presetKey==='standard'?9.7:13.03,h:7.2});await pptx.writeFile({fileName:`${fileBase}.pptx`})}finally{setExporting('')}}
+
+  return <div className="report-studio-modal" role="dialog" aria-modal="true" aria-label="เตรียมภาพรายงาน">
+    <div className="report-studio-toolbar">
+      <div><strong>เตรียมภาพรายงาน</strong><span>ปรับเฉพาะไฟล์ส่งออก ไม่กระทบหน้าสถานี</span></div>
+      <label>ขนาด<select value={presetKey} onChange={event=>setPresetKey(event.target.value)}>{Object.entries(REPORT_STUDIO_PRESETS).map(([key,item])=><option value={key} key={key}>{item.label}</option>)}</select></label>
+      <label>เนื้อหา<select value={contentMode} onChange={event=>setContentMode(event.target.value)}><option value="both">กราฟและตาราง</option><option value="chart">กราฟอย่างเดียว</option><option value="table">ตารางอย่างเดียว</option></select></label>
+      <label>ตัวอักษร<input type="range" min="0.9" max="1.35" step="0.05" value={fontScale} onChange={event=>setFontScale(Number(event.target.value))}/><small>{Math.round(fontScale*100)}%</small></label>
+      {contentMode!=='table'&&<label>ความสูงกราฟ<input type="range" min="220" max="440" step="20" value={chartSize} onChange={event=>setChartSize(Number(event.target.value))}/><small>{chartSize}px</small></label>}
+      <div className="report-studio-actions"><button className="btn secondary small" onClick={exportSvg}>SVG</button><button className="btn secondary small" onClick={exportPng} disabled={!!exporting}>PNG 3x</button><button className="btn primary small" onClick={exportPpt} disabled={!!exporting}>PowerPoint</button><button className="btn danger small" onClick={onClose}>ปิด</button></div>
+    </div>
+    <div className="report-studio-viewport"><div ref={previewRef} className="report-studio-stage" style={{width:preset.width,height:preset.height}} /></div>
+  </div>
+}
+
 function AdaptiveAccumulatedChart({ data, monthsCount, series, tooltipFormatter, left = -20, colorByMonth = false }) {
   if (!data.length) {
     return <div className="empty-state" style={{ height: '100%', display: 'grid', placeItems: 'center' }}>ยังไม่มีข้อมูลที่บันทึกในช่วงเดือนนี้</div>
@@ -183,6 +269,7 @@ export default function AnnualLedger({ permissions = [] }) {
   const [expandedSection, setExpandedSection] = useState(null)
   const [sectionLayouts, setSectionLayouts] = useState({})
   const [sectionGraphHeights, setSectionGraphHeights] = useState({})
+  const [reportStudioSection,setReportStudioSection]=useState(null)
 
   const openSectionPopup = section => {
     setExpandedSection(section)
@@ -234,6 +321,7 @@ export default function AnnualLedger({ permissions = [] }) {
       ) : (
         <button type="button" className="btn secondary small" onClick={() => openSectionPopup(section)}><BarChart3 size={14} /> ขยายเต็มหน้า</button>
       )}
+      <button type="button" className="btn primary small" onClick={()=>setReportStudioSection(section)}><Download size={14}/> เตรียมภาพรายงาน</button>
     </div>
   )
 
@@ -1767,7 +1855,7 @@ export default function AnnualLedger({ permissions = [] }) {
           {/* ==========================================
               SECTION 1: กระดาษทิชชู่
               ========================================== */}
-          <div className={`card ledger-analysis-card ${expandedSection === 'tissue' ? 'ledger-section-modal' : ''}`} style={{ gridColumn: getSectionGridColumn('tissue'), ...getSectionCardStyle('tissue'), padding: '24px', borderRadius: '24px', boxShadow: '0 4px 20px rgba(0,0,0,0.03)' }}>
+          <div data-report-section="tissue" className={`card ledger-analysis-card ${expandedSection === 'tissue' ? 'ledger-section-modal' : ''}`} style={{ gridColumn: getSectionGridColumn('tissue'), ...getSectionCardStyle('tissue'), padding: '24px', borderRadius: '24px', boxShadow: '0 4px 20px rgba(0,0,0,0.03)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', borderBottom: '1px solid #f1f5f9', paddingBottom: '12px', flexWrap: 'wrap', gap: '10px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <ClipboardList size={22} style={{ color: 'var(--primary-color)' }} />
@@ -1976,7 +2064,7 @@ export default function AnnualLedger({ permissions = [] }) {
           {/* ==========================================
               SECTION 2: ถุงดำ / ถุงขยะ
               ========================================== */}
-          <div className={`card ledger-analysis-card ${expandedSection === 'bags' ? 'ledger-section-modal' : ''}`} style={{ gridColumn: getSectionGridColumn('bags'), ...getSectionCardStyle('bags'), padding: '24px', borderRadius: '24px', boxShadow: '0 4px 20px rgba(0,0,0,0.03)' }}>
+          <div data-report-section="bags" className={`card ledger-analysis-card ${expandedSection === 'bags' ? 'ledger-section-modal' : ''}`} style={{ gridColumn: getSectionGridColumn('bags'), ...getSectionCardStyle('bags'), padding: '24px', borderRadius: '24px', boxShadow: '0 4px 20px rgba(0,0,0,0.03)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', borderBottom: '1px solid #f1f5f9', paddingBottom: '12px', flexWrap: 'wrap', gap: '10px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <ShoppingBag size={22} style={{ color: '#4f46e5' }} />
@@ -2161,7 +2249,7 @@ export default function AnnualLedger({ permissions = [] }) {
           {/* ==========================================
               SECTION 3: น้ำยาทำความสะอาด (Consumables)
               ========================================== */}
-          <div className={`card ledger-analysis-card ${expandedSection === 'consumables' ? 'ledger-section-modal' : ''}`} style={{ gridColumn: getSectionGridColumn('consumables'), ...getSectionCardStyle('consumables'), padding: '24px', borderRadius: '24px', boxShadow: '0 4px 20px rgba(0,0,0,0.03)' }}>
+          <div data-report-section="consumables" className={`card ledger-analysis-card ${expandedSection === 'consumables' ? 'ledger-section-modal' : ''}`} style={{ gridColumn: getSectionGridColumn('consumables'), ...getSectionCardStyle('consumables'), padding: '24px', borderRadius: '24px', boxShadow: '0 4px 20px rgba(0,0,0,0.03)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', borderBottom: '1px solid #f1f5f9', paddingBottom: '12px', flexWrap: 'wrap', gap: '10px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <Droplet size={22} style={{ color: '#06b6d4' }} />
@@ -2352,7 +2440,7 @@ export default function AnnualLedger({ permissions = [] }) {
           {/* ==========================================
               SECTION 4: ปริมาณขยะประจำเดือน (Unified Card with Graph on Top)
               ========================================== */}
-          <div className={`card ledger-analysis-card ${expandedSection === 'waste' ? 'ledger-section-modal' : ''}`} style={{ gridColumn: getSectionGridColumn('waste'), ...getSectionCardStyle('waste'), padding: '24px', borderRadius: '24px', boxShadow: '0 4px 20px rgba(0,0,0,0.03)' }}>
+          <div data-report-section="waste" className={`card ledger-analysis-card ${expandedSection === 'waste' ? 'ledger-section-modal' : ''}`} style={{ gridColumn: getSectionGridColumn('waste'), ...getSectionCardStyle('waste'), padding: '24px', borderRadius: '24px', boxShadow: '0 4px 20px rgba(0,0,0,0.03)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', borderBottom: '1px solid #f1f5f9', paddingBottom: '12px', flexWrap: 'wrap', gap: '10px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <Trash2 size={22} style={{ color: '#e11d48' }} />
@@ -2541,7 +2629,7 @@ export default function AnnualLedger({ permissions = [] }) {
           {/* ==========================================
               SECTION 6: อาหารสัตว์ (Animal Feed)
               ========================================== */}
-          <div className={`card ledger-analysis-card ${expandedSection === 'feed' ? 'ledger-section-modal' : ''}`} style={{ gridColumn: getSectionGridColumn('feed'), ...getSectionCardStyle('feed'), padding: '24px', borderRadius: '24px', boxShadow: '0 4px 20px rgba(0,0,0,0.03)' }}>
+          <div data-report-section="feed" className={`card ledger-analysis-card ${expandedSection === 'feed' ? 'ledger-section-modal' : ''}`} style={{ gridColumn: getSectionGridColumn('feed'), ...getSectionCardStyle('feed'), padding: '24px', borderRadius: '24px', boxShadow: '0 4px 20px rgba(0,0,0,0.03)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', borderBottom: '1px solid #f1f5f9', paddingBottom: '12px', flexWrap: 'wrap', gap: '10px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <Droplet size={22} style={{ color: '#0284c7' }} />
@@ -2655,7 +2743,7 @@ export default function AnnualLedger({ permissions = [] }) {
               SECTION 7: รายการขายเศษวัสดุประจำเดือน (High-Fidelity)
               ========================================== */}
           {viewMode === 'monthly' && (
-            <div className={`card ledger-analysis-card ${expandedSection === 'recycle-monthly' ? 'ledger-section-modal' : ''}`} style={{ gridColumn:getSectionGridColumn('recycle-monthly'), ...getSectionCardStyle('recycle-monthly'), padding: '24px', borderRadius: '24px', boxShadow: '0 4px 20px rgba(0,0,0,0.03)' }}>
+            <div data-report-section="recycle-monthly" className={`card ledger-analysis-card ${expandedSection === 'recycle-monthly' ? 'ledger-section-modal' : ''}`} style={{ gridColumn:getSectionGridColumn('recycle-monthly'), ...getSectionCardStyle('recycle-monthly'), padding: '24px', borderRadius: '24px', boxShadow: '0 4px 20px rgba(0,0,0,0.03)' }}>
               <div style={{ display: 'flex', justifyContent:'space-between', alignItems: 'center', gap: '10px', marginBottom: '18px', borderBottom: '1px solid #f1f5f9', paddingBottom: '12px', flexWrap:'wrap' }}>
                 <DollarSign size={22} style={{ color: '#d97706' }} />
                 <div>
@@ -2741,7 +2829,7 @@ export default function AnnualLedger({ permissions = [] }) {
               SECTION 8: รายการขายเศษวัสดุสะสม (amount)
               ========================================== */}
           {viewMode === 'yearly' && (
-          <div className={`card ledger-analysis-card ${expandedSection === 'recycle' ? 'ledger-section-modal' : ''}`} style={{ gridColumn: getSectionGridColumn('recycle'), ...getSectionCardStyle('recycle'), padding: '24px', borderRadius: '24px', boxShadow: '0 4px 20px rgba(0,0,0,0.03)' }}>
+          <div data-report-section="recycle" className={`card ledger-analysis-card ${expandedSection === 'recycle' ? 'ledger-section-modal' : ''}`} style={{ gridColumn: getSectionGridColumn('recycle'), ...getSectionCardStyle('recycle'), padding: '24px', borderRadius: '24px', boxShadow: '0 4px 20px rgba(0,0,0,0.03)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', borderBottom: '1px solid #f1f5f9', paddingBottom: '12px', flexWrap: 'wrap', gap: '10px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <TrendingUp size={22} style={{ color: '#0d9488' }} />
@@ -3172,6 +3260,8 @@ export default function AnnualLedger({ permissions = [] }) {
       )}
 
       {/* DETAIL DRILL-DOWN DRAWER OVERLAY */}
+      {reportStudioSection&&<ReportStudio section={reportStudioSection} onClose={()=>setReportStudioSection(null)}/>}
+
       {isDrawerOpen && drillDownParams && (
         <div style={{
           position: 'fixed',
