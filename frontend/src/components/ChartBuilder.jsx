@@ -130,7 +130,10 @@ export default function ChartBuilder({ permissions = [], user }) {
   const metricLabel = METRICS.find(item => item[0] === metric)?.[1]
   const canExport = user?.role === 'owner' || permissions.includes('reports.export')
   const selectedCount = selectedSeries.length
-  const maxBarSize = useMemo(() => Math.min(28, Math.max(6, Math.floor(240 / Math.max(1, resultSeries.length)))), [resultSeries.length])
+  const maxBarSize = useMemo(() => {
+    const totalBars = Math.max(1, chartData.length * resultSeries.length)
+    return Math.min(120, Math.max(8, Math.floor(700 / totalBars)))
+  }, [chartData.length, resultSeries.length])
 
   async function handlePowerPointExport() {
     if (!canExport || allZero || incompatible) return
