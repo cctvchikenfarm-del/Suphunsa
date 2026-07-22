@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { THAI_MONTHS_SHORT, MONTHS_OPTIONS, LEDGER_MODULE_LABELS, LEDGER_DB_MODULE_MAP, getDayFromDate, getWeekIndex, getModuleConfig, getGroupedConfig, monthlyEntryValue, getReportableMonths } from '../lib/ledger-config.js'
 import MonthPicker from './MonthPicker.jsx'
+import { toBlob, toPng, toSvg } from 'html-to-image'
 
 function buildMonthRange(startMonth, count) {
   if (!/^\d{4}-\d{2}$/.test(startMonth || '')) return []
@@ -43,19 +44,14 @@ const REPORT_STUDIO_PRESETS = {
   compact:{ label:'กะทัดรัดสำหรับครอป', width:960, height:640 }
 }
 
-function downloadDataUrl(dataUrl, fileName) {
-  const link=document.createElement('a')
-  link.href=dataUrl
-  link.download=fileName
-  link.click()
-}
-
-function ReportStudio({ section, onClose }) {
+export function ReportStudio({ section, onClose }) {
   const [presetKey,setPresetKey]=useState('wide')
   const [contentMode,setContentMode]=useState('both')
   const [fontScale,setFontScale]=useState(1)
   const [chartSize,setChartSize]=useState(320)
   const [exporting,setExporting]=useState('')
+  const [exportError,setExportError]=useState('')
+  const [readyFile,setReadyFile]=useState(null)
   const previewRef=useRef(null)
   const preset=REPORT_STUDIO_PRESETS[presetKey]
 
@@ -88,26 +84,16 @@ function ReportStudio({ section, onClose }) {
     previewRef.current.replaceChildren(clone)
   },[section,presetKey,contentMode,fontScale,chartSize])
   useEffect(()=>{document.body.classList.add('ledger-popup-open');return()=>document.body.classList.remove('ledger-popup-open')},[])
+  useEffect(()=>()=>{if(readyFile?.url)URL.revokeObjectURL(readyFile.url)},[readyFile])
 
-  const buildSvg=()=>{
-    const styles=Array.from(document.styleSheets).map(sheet=>{try{return Array.from(sheet.cssRules).map(rule=>rule.cssText).join('\n')}catch{return''}}).join('\n')
-    const markup=new XMLSerializer().serializeToString(previewRef.current)
-    return `<svg xmlns="http://www.w3.org/2000/svg" width="${preset.width}" height="${preset.height}" viewBox="0 0 ${preset.width} ${preset.height}"><foreignObject width="100%" height="100%"><div xmlns="http://www.w3.org/1999/xhtml"><style>${styles}</style>${markup}</div></foreignObject></svg>`
-  }
-  const svgDataUrl=svg=>`data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svg)))}`
   const fileBase=`CKAP-${section}-${presetKey}`
-  const exportSvg=()=>downloadDataUrl(svgDataUrl(buildSvg()),`${fileBase}.svg`)
-  const renderPng=async()=>{
-    const svg=buildSvg(),url=URL.createObjectURL(new Blob([svg],{type:'image/svg+xml;charset=utf-8'}))
-    try{
-      const image=await new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>resolve(img);img.onerror=reject;img.src=url})
-      const canvas=document.createElement('canvas');canvas.width=preset.width*3;canvas.height=preset.height*3
-      const ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(image,0,0,canvas.width,canvas.height)
-      return canvas.toDataURL('image/png')
-    }finally{URL.revokeObjectURL(url)}
-  }
-  const exportPng=async()=>{setExporting('png');try{downloadDataUrl(await renderPng(),`${fileBase}-3x.png`)}finally{setExporting('')}}
-  const exportPpt=async()=>{setExporting('ppt');try{const {default:PptxGenJS}=await import('pptxgenjs');const pptx=new PptxGenJS();pptx.layout=presetKey==='standard'?'LAYOUT_4X3':'LAYOUT_WIDE';pptx.author='CKAP System';const slide=pptx.addSlide();slide.background={color:'FFFFFF'};slide.addImage({data:await renderPng(),x:.15,y:.15,w:presetKey==='standard'?9.7:13.03,h:7.2});await pptx.writeFile({fileName:`${fileBase}.pptx`})}finally{setExporting('')}}
+  const imageOptions={cacheBust:true,backgroundColor:'#ffffff',width:preset.width,height:preset.height,style:{margin:'0',transform:'none'}}
+  const renderPng=()=>toPng(previewRef.current,{...imageOptions,pixelRatio:3})
+  const prepareFile=(blob,name)=>{if(!blob)throw new Error('ไม่สามารถสร้างไฟล์ได้');setReadyFile(current=>{if(current?.url)URL.revokeObjectURL(current.url);return{url:URL.createObjectURL(blob),name}})}
+  const runExport=async(kind,task)=>{setExportError('');setReadyFile(null);setExporting(kind);try{await task()}catch(error){console.error('Report export failed',error);setExportError(`ส่งออกไม่สำเร็จ: ${error?.message||'เบราว์เซอร์ไม่สามารถสร้างไฟล์ได้'}`)}finally{setExporting('')}}
+  const exportSvg=()=>runExport('svg',async()=>{const dataUrl=await toSvg(previewRef.current,{...imageOptions,pixelRatio:1});prepareFile(await (await fetch(dataUrl)).blob(),`${fileBase}.svg`)})
+  const exportPng=()=>runExport('png',async()=>prepareFile(await toBlob(previewRef.current,{...imageOptions,pixelRatio:3}),`${fileBase}-3x.png`))
+  const exportPpt=()=>runExport('ppt',async()=>{const pptModule=await import('pptxgenjs');const PptxGenJS=pptModule.default||pptModule;const pptx=new PptxGenJS();pptx.layout=presetKey==='standard'?'LAYOUT_4X3':'LAYOUT_WIDE';pptx.author='CKAP System';const slide=pptx.addSlide();slide.background={color:'FFFFFF'};slide.addImage({data:await renderPng(),x:.15,y:.15,w:presetKey==='standard'?9.7:13.03,h:7.2});prepareFile(await pptx.write({outputType:'blob'}),`${fileBase}.pptx`)})
 
   return <div className="report-studio-modal" role="dialog" aria-modal="true" aria-label="เตรียมภาพรายงาน">
     <div className="report-studio-toolbar">
@@ -116,7 +102,9 @@ function ReportStudio({ section, onClose }) {
       <label>เนื้อหา<select value={contentMode} onChange={event=>setContentMode(event.target.value)}><option value="both">กราฟและตาราง</option><option value="chart">กราฟอย่างเดียว</option><option value="table">ตารางอย่างเดียว</option></select></label>
       <label>ตัวอักษร<input type="range" min="0.9" max="1.35" step="0.05" value={fontScale} onChange={event=>setFontScale(Number(event.target.value))}/><small>{Math.round(fontScale*100)}%</small></label>
       {contentMode!=='table'&&<label>ความสูงกราฟ<input type="range" min="220" max="440" step="20" value={chartSize} onChange={event=>setChartSize(Number(event.target.value))}/><small>{chartSize}px</small></label>}
-      <div className="report-studio-actions"><button className="btn secondary small" onClick={exportSvg}>SVG</button><button className="btn secondary small" onClick={exportPng} disabled={!!exporting}>PNG 3x</button><button className="btn primary small" onClick={exportPpt} disabled={!!exporting}>PowerPoint</button><button className="btn danger small" onClick={onClose}>ปิด</button></div>
+      <div className="report-studio-actions"><button type="button" className="btn secondary small" onClick={exportSvg} disabled={!!exporting}>{exporting==='svg'?'กำลังสร้าง…':'สร้าง SVG'}</button><button type="button" className="btn secondary small" onClick={exportPng} disabled={!!exporting}>{exporting==='png'?'กำลังสร้าง…':'สร้าง PNG 3x'}</button><button type="button" className="btn primary small" onClick={exportPpt} disabled={!!exporting}>{exporting==='ppt'?'กำลังสร้าง…':'สร้าง PowerPoint'}</button><button type="button" className="btn danger small" onClick={onClose}>ปิด</button></div>
+      {readyFile&&<a className="btn primary report-studio-download" href={readyFile.url} download={readyFile.name}>ดาวน์โหลดไฟล์ที่สร้างแล้ว: {readyFile.name}</a>}
+      {exportError&&<div className="report-studio-error" role="alert">{exportError}</div>}
     </div>
     <div className="report-studio-viewport"><div ref={previewRef} className="report-studio-stage" style={{width:preset.width,height:preset.height}} /></div>
   </div>

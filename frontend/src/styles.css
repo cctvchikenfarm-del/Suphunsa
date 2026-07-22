@@ -596,6 +596,8 @@ tr:last-child td { border-bottom: 0; }
 .report-studio-toolbar input[type="range"] { width:120px; accent-color:#0f766e; }
 .report-studio-toolbar small { text-align:center; color:#0f766e; }
 .report-studio-actions { display:flex; gap:6px; flex-wrap:wrap; }
+.report-studio-error { flex:1 0 100%; padding:8px 12px; border:1px solid #fecaca; border-radius:9px; background:#fef2f2; color:#b91c1c; font-size:12px; font-weight:800; }
+.report-studio-download { flex:1 0 100%; justify-content:center; text-decoration:none; background:#166534 !important; }
 .report-studio-viewport { min-width:0; min-height:0; overflow:auto; padding:24px; }
 .report-studio-stage { margin:auto; overflow:hidden; box-sizing:border-box; background:#fff; box-shadow:0 18px 50px rgba(15,23,42,.22); }
 .report-studio-clone { box-sizing:border-box !important; overflow:hidden !important; background:#fff !important; }
