@@ -79,19 +79,13 @@ export function ReportStudio({ section, onClose }) {
     clone.style.setProperty('--studio-table-stripe',tableTheme.stripe)
     clone.style.setProperty('--studio-table-border',tableTheme.border)
     if(contentMode==='chart') clone.querySelectorAll('.table-container,.monthly-recycle-table').forEach(node=>node.remove())
-    if(contentMode==='table') {
-      clone.querySelectorAll('.recharts-responsive-container,.monthly-recycle-chart').forEach(node=>{
-        let target=node
-        while(target.parentElement&&target.parentElement!==clone&&!target.parentElement.classList.contains('ledger-analysis-content')&&!target.parentElement.classList.contains('monthly-recycle-report-layout')) target=target.parentElement
-        target.remove()
-      })
-    } else {
-      clone.querySelectorAll('.recharts-responsive-container').forEach(node=>{
-        let target=node.parentElement
-        while(target&&target.parentElement&&target.parentElement!==clone&&!target.parentElement.classList.contains('ledger-analysis-content')&&!target.parentElement.classList.contains('monthly-recycle-report-layout')) target=target.parentElement
-        if(target) target.style.height=`${chartSize}px`
-      })
-    }
+    const chartFrames=clone.querySelectorAll('.report-chart-frame')
+    if(contentMode==='table') chartFrames.forEach(node=>node.remove())
+    else chartFrames.forEach(node=>{
+      node.style.height=`${chartSize}px`
+      node.style.minHeight=`${chartSize}px`
+      node.style.maxHeight=`${chartSize}px`
+    })
     previewRef.current.replaceChildren(clone)
   },[section,presetKey,contentMode,fontScale,chartSize,tableTheme])
   useEffect(()=>{document.body.classList.add('ledger-popup-open');return()=>document.body.classList.remove('ledger-popup-open')},[])
@@ -113,7 +107,7 @@ export function ReportStudio({ section, onClose }) {
       <label>เนื้อหา<select value={contentMode} onChange={event=>setContentMode(event.target.value)}><option value="both">กราฟและตาราง</option><option value="chart">กราฟอย่างเดียว</option><option value="table">ตารางอย่างเดียว</option></select></label>
       <label>ตัวอักษรกราฟ/ตาราง<input type="range" min="0.9" max="1.6" step="0.05" value={fontScale} onChange={event=>setFontScale(Number(event.target.value))}/><small>{Math.round(fontScale*100)}%</small></label>
       {contentMode!=='chart'&&<label>สีตาราง<select value={tableThemeKey} onChange={event=>setTableThemeKey(event.target.value)}>{Object.entries(REPORT_TABLE_THEMES).map(([key,item])=><option value={key} key={key}>{item.label}</option>)}</select></label>}
-      {contentMode!=='table'&&<label>ความสูงกราฟ<input type="range" min="220" max="440" step="20" value={chartSize} onChange={event=>setChartSize(Number(event.target.value))}/><small>{chartSize}px</small></label>}
+      {contentMode!=='table'&&<label className="report-studio-height-control"><span>ความสูงกราฟ</span><input aria-label="ความสูงกราฟ" type="range" min="220" max="440" step="20" value={chartSize} onChange={event=>setChartSize(Number(event.target.value))}/><strong>{chartSize}px</strong></label>}
       <div className="report-studio-actions"><button type="button" className="btn secondary small" onClick={exportSvg} disabled={!!exporting}>{exporting==='svg'?'กำลังสร้าง…':'สร้าง SVG'}</button><button type="button" className="btn secondary small" onClick={exportPng} disabled={!!exporting}>{exporting==='png'?'กำลังสร้าง…':'สร้าง PNG 3x'}</button><button type="button" className="btn primary small" onClick={exportPpt} disabled={!!exporting}>{exporting==='ppt'?'กำลังสร้าง…':'สร้าง PowerPoint'}</button><button type="button" className="btn danger small" onClick={onClose}>ปิด</button></div>
       {readyFile&&<a className="btn primary report-studio-download" href={readyFile.url} download={readyFile.name}>ดาวน์โหลดไฟล์ที่สร้างแล้ว: {readyFile.name}</a>}
       {exportError&&<div className="report-studio-error" role="alert">{exportError}</div>}
@@ -2013,7 +2007,7 @@ export default function AnnualLedger({ permissions = [] }) {
               </div>
 
               {showTissueChart && (
-                <div style={{ order: 1, height: `${getSectionGraphHeight('tissue')}px`, width: '100%', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div className="report-chart-frame" style={{ order: 1, height: `${getSectionGraphHeight('tissue')}px`, width: '100%', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   {selectedTissueRow && (
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 'bold' }}>
@@ -2207,7 +2201,7 @@ export default function AnnualLedger({ permissions = [] }) {
               </div>
 
               {showBagsChart && (
-                <div style={{ order: 1, height: `${getSectionGraphHeight('bags')}px`, width: '100%', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div className="report-chart-frame" style={{ order: 1, height: `${getSectionGraphHeight('bags')}px`, width: '100%', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   {selectedBagsRow && (
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 'bold' }}>
@@ -2398,7 +2392,7 @@ export default function AnnualLedger({ permissions = [] }) {
               </div>
 
               {showConsumablesChart && (
-                <div style={{ order: 1, height: `${getSectionGraphHeight('consumables')}px`, width: '100%', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div className="report-chart-frame" style={{ order: 1, height: `${getSectionGraphHeight('consumables')}px`, width: '100%', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   {selectedConsumablesRow && (
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 'bold' }}>
@@ -2582,7 +2576,7 @@ export default function AnnualLedger({ permissions = [] }) {
               </div>
               
               {showWasteChart && (
-                <div style={{ order: 1, height: `${getSectionGraphHeight('waste')}px`, width: '100%', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div className="report-chart-frame" style={{ order: 1, height: `${getSectionGraphHeight('waste')}px`, width: '100%', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   {viewMode === 'monthly' ? (
                     <div style={{ flex: 1 }}>
                       <ResponsiveContainer width="100%" height="100%">
@@ -2718,7 +2712,7 @@ export default function AnnualLedger({ permissions = [] }) {
               </div>
 
               {showFeedChart && (
-                <div style={{ order: 1, height: `${getSectionGraphHeight('feed')}px`, width: '100%', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div className="report-chart-frame" style={{ order: 1, height: `${getSectionGraphHeight('feed')}px`, width: '100%', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   {selectedFeedRow && (
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 'bold' }}>
@@ -2797,7 +2791,7 @@ export default function AnnualLedger({ permissions = [] }) {
                   </table>
                 </div>
                 
-                <div className="monthly-recycle-chart" style={{ height: `${getSectionGraphHeight('recycle-monthly')}px`, order: 1 }}>
+                <div className="monthly-recycle-chart report-chart-frame" style={{ height: `${getSectionGraphHeight('recycle-monthly')}px`, order: 1 }}>
                   <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#64748b', display: 'block', textAlign: 'center', marginBottom: '8px' }}>
                     จำนวนเงิน (บาท)
                   </span>
@@ -2920,7 +2914,7 @@ export default function AnnualLedger({ permissions = [] }) {
               </div>
 
               {showRecycleChart && (
-                <div style={{ order: 1, height: `${getSectionGraphHeight('recycle')}px`, width: '100%', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div className="report-chart-frame" style={{ order: 1, height: `${getSectionGraphHeight('recycle')}px`, width: '100%', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   {selectedRecycleRow && (
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 'bold' }}>

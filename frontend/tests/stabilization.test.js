@@ -391,6 +391,18 @@ test('Switching to accumulated yearly reports keeps the selected year and compac
   assert.match(ledger, /section === 'recycle-monthly' \|\| section === 'recycle'/)
 })
 
+test('Report graph height targets every chart frame and table cells keep one border grid', () => {
+  const ledger = fs.readFileSync(new URL('../src/components/AnnualLedger.jsx', import.meta.url), 'utf8')
+  const styles = fs.readFileSync(new URL('../src/styles.css', import.meta.url), 'utf8')
+  assert.equal((ledger.match(/className="report-chart-frame"/g) || []).length, 6)
+  assert.match(ledger, /monthly-recycle-chart report-chart-frame/)
+  assert.match(ledger, /querySelectorAll\('\.report-chart-frame'\)/)
+  assert.match(ledger, /node\.style\.minHeight=`\$\{chartSize\}px`/)
+  assert.match(ledger, /aria-label="ความสูงกราฟ"/)
+  assert.match(styles, /table tbody td:first-child[\s\S]*display:table-cell !important/)
+  assert.match(styles, /report-studio-height-control/)
+})
+
 test('monthly Station Summary keeps sections 5-6 on one selected month and places the recycle chart above its table', () => {
   const ledger = fs.readFileSync(new URL('../src/components/AnnualLedger.jsx', import.meta.url), 'utf8')
   assert.match(ledger, /viewMode === 'monthly'[\s\S]*?selectedMonth \? \[`\$\{selectedCE\}-\$\{selectedMonth\}`\] : \[\][\s\S]*?: summaryMonths/)
