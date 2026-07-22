@@ -1,10 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { Download } from 'lucide-react'
 import { apiFetch, currentMonth, formatNumber, MODULE_LABELS, MODULE_ORDER } from '../api.js'
 import MonthPicker from './MonthPicker.jsx'
 import { exportChartReportPowerPoint } from '../lib/chart-report-export.js'
 import { downloadChartPng, downloadChartSvg, safeName } from '../lib/export-report.js'
+import { ReportStudio } from './AnnualLedger.jsx'
 
 const PALETTE = ['#18181b','#388e3c','#4ade80','#0ea5e9','#ffd600','#3b82f6','#64748b','#8b5cf6','#ea580c','#db2777']
 const METRICS = [
@@ -29,6 +31,7 @@ export default function ChartBuilder({ permissions = [], user }) {
   const [showTable, setShowTable] = useState(false)
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [showColors, setShowColors] = useState(false)
+  const [showReportStudio, setShowReportStudio] = useState(false)
   const [reportTitle, setReportTitle] = useState('รายงานกราฟข้อมูลประจำสถานี')
   const [slideLayout, setSlideLayout] = useState('LAYOUT_WIDE')
   const [isExporting, setIsExporting] = useState(false)
@@ -53,14 +56,11 @@ export default function ChartBuilder({ permissions = [], user }) {
   useEffect(() => {
     if (!selectedModules.length) return
     if (selectedModules.every(module => QUANTITY_MODULES.has(module))) {
-      if (metric !== 'quantity') setMetric('quantity')
-      return
+      if (metric === 'weight_kg') setMetric('quantity')
+    } else if (selectedModules.every(module => WEIGHT_MODULES.has(module))) {
+      if (metric === 'quantity') setMetric('weight_kg')
     }
-    if (selectedModules.every(module => WEIGHT_MODULES.has(module))) {
-      const recycleOnly = selectedModules.every(module => module === 'recycle')
-      if (metric !== 'weight_kg' && !(recycleOnly && metric === 'amount')) setMetric('weight_kg')
-    }
-  }, [selectedModules, metric])
+  }, [selectedModules])
 
   const categoriesByModule = useMemo(() => {
     const grouped={}
@@ -106,11 +106,12 @@ export default function ChartBuilder({ permissions = [], user }) {
     if(!canExport || allZero || incompatible) return
     setIsExporting(true)
     try {
+      const formattedSeries = resultSeries.map(item => ({ ...item, name: item.label }))
       await exportChartReportPowerPoint({
         title:reportTitle,
         periodLabel:startMonth===endMonth?startMonth:`${startMonth} – ${endMonth}`,
         chartType,
-        series:resultSeries,
+        series:formattedSeries,
         points:data?.points||[],
         colors,
         layout:slideLayout
@@ -173,13 +174,28 @@ export default function ChartBuilder({ permissions = [], user }) {
     {!isLoading && selectedSeries.length>0 && allZero && <div className="card empty-state"><strong>ไม่พบข้อมูลสำหรับเงื่อนไขที่เลือก</strong><span>ระบบจะไม่สร้างข้อสรุปหรือระบุว่าประเภทใดสูงสุดเมื่อทุกค่าเป็นศูนย์</span></div>}
 
     {!allZero && !incompatible && <>
-      <div className="card custom-chart-preview"><div className="chart-step-heading"><span>2</span><div><h3>ตรวจกราฟ</h3><p className="muted no-margin">{metricLabel} · {startMonth===endMonth?startMonth:`${startMonth} – ${endMonth}`} · {groupBy==='daily'?'รายวัน':'รายเดือน'}</p></div><span className="chart-type-badge">{chartType.toUpperCase()}</span></div><div ref={chartExportRef} className="chart-preview-box large">
-        {chartType==='bar' && <ResponsiveContainer width="100%" height="100%"><BarChart data={chartData}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="label"/><YAxis/><Tooltip formatter={(value,name)=>[formatNumber(value),resultSeries.find(item=>item.key===name)?.label||name]}/><Legend formatter={key=>resultSeries.find(item=>item.key===key)?.label||key}/>{resultSeries.map(item=><Bar key={item.key} dataKey={item.key} fill={colors[item.key]} radius={[5,5,0,0]}/>)}</BarChart></ResponsiveContainer>}
-        {chartType==='line' && <ResponsiveContainer width="100%" height="100%"><LineChart data={chartData}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="label"/><YAxis/><Tooltip formatter={(value,name)=>[formatNumber(value),resultSeries.find(item=>item.key===name)?.label||name]}/><Legend formatter={key=>resultSeries.find(item=>item.key===key)?.label||key}/>{resultSeries.map(item=><Line key={item.key} dataKey={item.key} name={item.key} stroke={colors[item.key]} strokeWidth={3} dot={{r:3}} type="monotone"/>)}</LineChart></ResponsiveContainer>}
-        {chartType==='pie' && <ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={resultSeries.filter(item=>item.total!==0)} dataKey="total" nameKey="label" outerRadius={150} label={({label,percent})=>`${label} ${(percent*100).toFixed(0)}%`}>{resultSeries.filter(item=>item.total!==0).map(item=><Cell key={item.key} fill={colors[item.key]}/>)}</Pie><Tooltip formatter={value=>formatNumber(value)}/><Legend/></PieChart></ResponsiveContainer>}
-      </div><div className="chart-preview-tools"><button className="ghost" onClick={()=>setShowColors(value=>!value)}>{showColors?'ซ่อนการปรับสี':'ปรับสีกราฟ'}</button><button className="ghost" onClick={()=>setShowTable(value=>!value)}>{showTable?'ซ่อนตารางข้อมูล':'แสดงตารางข้อมูล'}</button></div></div>
+      <div className="card custom-chart-preview" data-report-section="chart-builder">
+        <div className="chart-step-heading">
+          <span>2</span>
+          <div>
+            <h3>ตรวจกราฟและตารางข้อมูล</h3>
+            <p className="muted no-margin">{metricLabel} · {startMonth===endMonth?startMonth:`${startMonth} – ${endMonth}`} · {groupBy==='daily'?'รายวัน':'รายเดือน'}</p>
+          </div>
+          <span className="chart-type-badge">{chartType.toUpperCase()}</span>
+        </div>
+        <div ref={chartExportRef} className="chart-preview-box large report-chart-frame">
+          {chartType==='bar' && <ResponsiveContainer width="100%" height="100%"><BarChart data={chartData}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="label"/><YAxis/><Tooltip formatter={(value,name)=>[formatNumber(value),resultSeries.find(item=>item.key===name)?.label||name]}/><Legend formatter={key=>resultSeries.find(item=>item.key===key)?.label||key}/>{resultSeries.map(item=><Bar key={item.key} dataKey={item.key} fill={colors[item.key]} radius={[5,5,0,0]}/>)}</BarChart></ResponsiveContainer>}
+          {chartType==='line' && <ResponsiveContainer width="100%" height="100%"><LineChart data={chartData}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="label"/><YAxis/><Tooltip formatter={(value,name)=>[formatNumber(value),resultSeries.find(item=>item.key===name)?.label||name]}/><Legend formatter={key=>resultSeries.find(item=>item.key===key)?.label||key}/>{resultSeries.map(item=><Line key={item.key} dataKey={item.key} name={item.key} stroke={colors[item.key]} strokeWidth={3} dot={{r:3}} type="monotone"/>)}</LineChart></ResponsiveContainer>}
+          {chartType==='pie' && <ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={resultSeries.filter(item=>item.total!==0)} dataKey="total" nameKey="label" outerRadius={150} label={({label,percent})=>`${label} ${(percent*100).toFixed(0)}%`}>{resultSeries.filter(item=>item.total!==0).map(item=><Cell key={item.key} fill={colors[item.key]}/>)}</Pie><Tooltip formatter={value=>formatNumber(value)}/><Legend formatter={key=>resultSeries.find(item=>item.key===key||item.label===key)?.label||key}/></PieChart></ResponsiveContainer>}
+        </div>
+        <div className="chart-preview-tools">
+          <button className="ghost" onClick={()=>setShowColors(value=>!value)}>{showColors?'ซ่อนการปรับสี':'ปรับสีกราฟ'}</button>
+          <button className="ghost" onClick={()=>setShowTable(value=>!value)}>{showTable?'ซ่อนตารางข้อมูล':'แสดงตารางข้อมูล'}</button>
+          <button type="button" className="btn primary small" onClick={()=>setShowReportStudio(true)}><Download size={14}/> เตรียมภาพรายงาน</button>
+        </div>
+      </div>
       {showColors&&<div className="card chart-style-card"><div className="section-title-row"><div><h3>ปรับสีกราฟ</h3><p className="muted no-margin">ไม่มีผลต่อข้อมูลต้นทาง</p></div><button className="ghost" onClick={resetColors}>คืนค่าสีเริ่มต้น</button></div><div className="chart-color-grid">{resultSeries.map(item=><label key={item.key}><input type="color" value={colors[item.key]||'#2563eb'} onChange={e=>setColors(current=>({...current,[item.key]:e.target.value}))}/><span>{item.label}</span><small>{item.unit}</small></label>)}</div></div>}
-      {showTable&&<div className="card chart-data-table"><div className="section-title-row"><div><h3>ตารางตรวจสอบข้อมูลกราฟ</h3><p className="muted no-margin">ตรวจข้อมูลจริงก่อนนำไปทำรายงาน</p></div></div><div className="table-wrap"><table><thead><tr><th>ช่วงเวลา</th>{resultSeries.map(item=><th key={item.key}>{item.label}<small className="muted"> ({item.unit})</small></th>)}</tr></thead><tbody>{chartData.map(row=><tr key={row.label}><td>{row.label}</td>{resultSeries.map(item=><td key={item.key} className="num">{formatNumber(row[item.key]||0)}</td>)}</tr>)}<tr className="total-row"><td>รวม</td>{resultSeries.map(item=><td key={item.key} className="num"><strong>{formatNumber(item.total)}</strong></td>)}</tr></tbody></table></div></div>}
+      {showTable&&<div className="card chart-data-table table-container"><div className="section-title-row"><div><h3>ตารางตรวจสอบข้อมูลกราฟ</h3><p className="muted no-margin">ตรวจข้อมูลจริงก่อนนำไปทำรายงาน</p></div></div><div className="table-wrap"><table className="table" style={{ fontSize: '13px', width: '100%', borderCollapse: 'collapse' }}><thead><tr style={{ background: 'linear-gradient(135deg, #0f766e, #0891b2)', color: '#ffffff' }}><th style={{ color: '#ffffff', fontWeight: 'bold' }}>ช่วงเวลา</th>{resultSeries.map(item=><th key={item.key} style={{ textAlign: 'right', color: '#ffffff', fontWeight: 'bold' }}><span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><span style={{ width: '10px', height: '10px', borderRadius: '50%', background: colors[item.key] || '#2563eb', border: '1.5px solid #fff', display: 'inline-block' }} />{item.label} <small style={{ color: '#e0f2fe', fontWeight: 'normal' }}>({item.unit})</small></span></th>)}</tr></thead><tbody>{chartData.map((row, idx)=><tr key={row.label} style={{ background: idx % 2 === 0 ? '#ffffff' : '#f8fafc' }}><td style={{ fontWeight: 'bold', borderBottom: '1px solid #e2e8f0' }}>{row.label}</td>{resultSeries.map(item=><td key={item.key} className="num" style={{ textAlign: 'right', borderBottom: '1px solid #e2e8f0' }}>{formatNumber(row[item.key]||0)}</td>)}</tr>)}<tr className="total-row" style={{ background: '#f0fdfa', fontWeight: 'bold', borderTop: '2px solid #0f766e' }}><td style={{ color: '#0f766e', fontWeight: 'bold' }}>รวมทั้งหมด</td>{resultSeries.map(item=><td key={item.key} className="num" style={{ textAlign: 'right', color: '#0f766e', fontWeight: 'bold' }}><strong>{formatNumber(item.total)}</strong></td>)}</tr></tbody></table></div></div>}
       <div className="card chart-export-card"><div className="chart-step-heading"><span>3</span><div><h3>ส่งออกรายงาน</h3><p className="muted no-margin">ตั้งชื่อและเลือกไฟล์ที่ต้องการนำไปใช้</p></div></div><div className="chart-report-controls">
         <label className="field"><span>ชื่อรายงาน</span><input value={reportTitle} onChange={e=>setReportTitle(e.target.value)} /></label>
         <label className="field"><span>ขนาด PowerPoint</span><select value={slideLayout} onChange={e=>setSlideLayout(e.target.value)}><option value="LAYOUT_WIDE">16:9</option><option value="LAYOUT_4X3">4:3</option></select></label>
@@ -188,5 +204,6 @@ export default function ChartBuilder({ permissions = [], user }) {
         <button type="button" className="btn secondary" onClick={()=>handleImageExport('svg')} disabled={!canExport||allZero||incompatible}>SVG</button>
       </div></div>
     </>}
+    {showReportStudio && <ReportStudio section="chart-builder" onClose={() => setShowReportStudio(false)} />}
   </section>
 }

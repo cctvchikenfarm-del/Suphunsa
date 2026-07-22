@@ -58,7 +58,7 @@ function aggregateChartRows({ rows = [], requestedSeries = [], metric = 'weight_
     const key = seriesToken(definition.module, definition.category);
     const matchingRows = normalizedRows.filter(row => {
       if (definition.module === 'wet_waste') return ['dog_food', 'pig_feed'].includes(row.module);
-      return row.module === definition.module && (!definition.category || row.category_code === definition.category);
+      return row.module === definition.module && (!definition.category || row.category_code === definition.category || row.material_name === definition.category);
     });
     const materialLabel = definition.category && matchingRows.find(row => row.material_name)?.material_name;
     const units = metric === 'quantity'
@@ -88,13 +88,14 @@ function aggregateChartRows({ rows = [], requestedSeries = [], metric = 'weight_
     total: Number(itemRows.reduce((sum, row) => sum + metricValue(row, metric, groupBy), 0).toFixed(2)),
     records: itemRows.length
   }));
-  const activeUnits = [...new Set(resultSeries.filter(item => item.total !== 0).map(item => item.unit))];
+  const activeSeries = resultSeries.filter(item => item.records > 0 && item.total !== 0);
+  const activeUnits = [...new Set(activeSeries.map(item => item.unit))];
   const hasData = resultSeries.some(item => item.records > 0);
   return {
     metric,
     group_by: groupBy,
     has_data: hasData,
-    compatible_units: !resultSeries.some(item => item.mixed_units) && activeUnits.length <= 1,
+    compatible_units: !activeSeries.some(item => item.mixed_units) && activeUnits.length <= 1,
     units: activeUnits,
     series: resultSeries,
     points
