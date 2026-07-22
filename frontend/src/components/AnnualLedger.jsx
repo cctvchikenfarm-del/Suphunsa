@@ -51,11 +51,11 @@ const REPORT_TABLE_THEMES = {
   slate:{ label:'เทาเข้ม', header:'#334155', headerEnd:'#475569', stripe:'#f8fafc', border:'#cbd5e1' }
 }
 
-export function ReportStudio({ section, onClose }) {
+export function ReportStudio({ section, onClose, initialChartSize = 320, onChartSizeChange }) {
   const [presetKey,setPresetKey]=useState('wide')
   const [contentMode,setContentMode]=useState('both')
   const [fontScale,setFontScale]=useState(1)
-  const [chartSize,setChartSize]=useState(section==='recycle-monthly'||section==='recycle'?240:320)
+  const [chartSize,setChartSize]=useState(initialChartSize)
   const [tableThemeKey,setTableThemeKey]=useState('teal')
   const [exporting,setExporting]=useState('')
   const [exportError,setExportError]=useState('')
@@ -64,29 +64,35 @@ export function ReportStudio({ section, onClose }) {
   const preset=REPORT_STUDIO_PRESETS[presetKey]
   const tableTheme=REPORT_TABLE_THEMES[tableThemeKey]
 
+  useEffect(()=>setChartSize(initialChartSize),[initialChartSize])
+
   useEffect(()=>{
-    const source=document.querySelector(`[data-report-section="${section}"]`)
-    if(!source||!previewRef.current)return
-    const clone=source.cloneNode(true)
-    clone.classList.remove('ledger-section-modal')
-    clone.classList.add('report-studio-clone')
-    clone.querySelectorAll('.ledger-section-controls,button').forEach(node=>node.remove())
-    Object.assign(clone.style,{width:'100%',height:'100%',margin:'0',gridColumn:'auto',boxShadow:'none',border:'0',borderRadius:'0'})
-    clone.style.setProperty('--studio-table-size',`${Math.round(13*fontScale)}px`)
-    clone.style.setProperty('--studio-chart-size',`${Math.round(12*fontScale)}px`)
-    clone.style.setProperty('--studio-table-header',tableTheme.header)
-    clone.style.setProperty('--studio-table-header-end',tableTheme.headerEnd)
-    clone.style.setProperty('--studio-table-stripe',tableTheme.stripe)
-    clone.style.setProperty('--studio-table-border',tableTheme.border)
-    if(contentMode==='chart') clone.querySelectorAll('.table-container,.monthly-recycle-table').forEach(node=>node.remove())
-    const chartFrames=clone.querySelectorAll('.report-chart-frame')
-    if(contentMode==='table') chartFrames.forEach(node=>node.remove())
-    else chartFrames.forEach(node=>{
-      node.style.height=`${chartSize}px`
-      node.style.minHeight=`${chartSize}px`
-      node.style.maxHeight=`${chartSize}px`
+    let secondFrame
+    const firstFrame=requestAnimationFrame(()=>{
+      secondFrame=requestAnimationFrame(()=>{
+        const source=document.querySelector(`[data-report-section="${section}"]`)
+        if(!source||!previewRef.current)return
+        const clone=source.cloneNode(true)
+        clone.classList.remove('ledger-section-modal')
+        clone.classList.add('report-studio-clone')
+        clone.querySelectorAll('.ledger-section-controls,button').forEach(node=>node.remove())
+        Object.assign(clone.style,{width:'100%',height:'100%',margin:'0',gridColumn:'auto',boxShadow:'none',border:'0',borderRadius:'0'})
+        clone.style.setProperty('--studio-table-size',`${Math.round(13*fontScale)}px`)
+        clone.style.setProperty('--studio-chart-size',`${Math.round(12*fontScale)}px`)
+        clone.style.setProperty('--studio-table-header',tableTheme.header)
+        clone.style.setProperty('--studio-table-header-end',tableTheme.headerEnd)
+        clone.style.setProperty('--studio-table-stripe',tableTheme.stripe)
+        clone.style.setProperty('--studio-table-border',tableTheme.border)
+        if(contentMode==='chart') clone.querySelectorAll('.table-container,.monthly-recycle-table').forEach(node=>node.remove())
+        const chartFrames=clone.querySelectorAll('.report-chart-frame')
+        if(contentMode==='table') chartFrames.forEach(node=>node.remove())
+        previewRef.current.replaceChildren(clone)
+      })
     })
-    previewRef.current.replaceChildren(clone)
+    return()=>{
+      cancelAnimationFrame(firstFrame)
+      if(secondFrame)cancelAnimationFrame(secondFrame)
+    }
   },[section,presetKey,contentMode,fontScale,chartSize,tableTheme])
   useEffect(()=>{document.body.classList.add('ledger-popup-open');return()=>document.body.classList.remove('ledger-popup-open')},[])
   useEffect(()=>()=>{if(readyFile?.url)URL.revokeObjectURL(readyFile.url)},[readyFile])
@@ -107,7 +113,7 @@ export function ReportStudio({ section, onClose }) {
       <label>เนื้อหา<select value={contentMode} onChange={event=>setContentMode(event.target.value)}><option value="both">กราฟและตาราง</option><option value="chart">กราฟอย่างเดียว</option><option value="table">ตารางอย่างเดียว</option></select></label>
       <label>ตัวอักษรกราฟ/ตาราง<input type="range" min="0.9" max="1.6" step="0.05" value={fontScale} onChange={event=>setFontScale(Number(event.target.value))}/><small>{Math.round(fontScale*100)}%</small></label>
       {contentMode!=='chart'&&<label>สีตาราง<select value={tableThemeKey} onChange={event=>setTableThemeKey(event.target.value)}>{Object.entries(REPORT_TABLE_THEMES).map(([key,item])=><option value={key} key={key}>{item.label}</option>)}</select></label>}
-      {contentMode!=='table'&&<label className="report-studio-height-control"><span>ความสูงกราฟ</span><input aria-label="ความสูงกราฟ" type="range" min="220" max="440" step="20" value={chartSize} onChange={event=>setChartSize(Number(event.target.value))}/><strong>{chartSize}px</strong></label>}
+      {contentMode!=='table'&&<label className="report-studio-height-control"><span>ความสูงกราฟ</span><input aria-label="ความสูงกราฟ" type="range" min="220" max="440" step="20" value={chartSize} onChange={event=>{const next=Number(event.target.value);setChartSize(next);onChartSizeChange?.(next)}}/><strong>{chartSize}px</strong></label>}
       <div className="report-studio-actions"><button type="button" className="btn secondary small" onClick={exportSvg} disabled={!!exporting}>{exporting==='svg'?'กำลังสร้าง…':'สร้าง SVG'}</button><button type="button" className="btn secondary small" onClick={exportPng} disabled={!!exporting}>{exporting==='png'?'กำลังสร้าง…':'สร้าง PNG 3x'}</button><button type="button" className="btn primary small" onClick={exportPpt} disabled={!!exporting}>{exporting==='ppt'?'กำลังสร้าง…':'สร้าง PowerPoint'}</button><button type="button" className="btn danger small" onClick={onClose}>ปิด</button></div>
       {readyFile&&<a className="btn primary report-studio-download" href={readyFile.url} download={readyFile.name}>ดาวน์โหลดไฟล์ที่สร้างแล้ว: {readyFile.name}</a>}
       {exportError&&<div className="report-studio-error" role="alert">{exportError}</div>}
@@ -282,7 +288,12 @@ export default function AnnualLedger({ permissions = [] }) {
   const getSectionLayout = section => sectionLayouts[section] || 'full'
   const setSectionLayout = (section, layout) => setSectionLayouts(current => ({ ...current, [section]: layout }))
   const isRecycleReport = section => section === 'recycle-monthly' || section === 'recycle'
-  const getSectionGraphHeight = section => ({ compact: 240, standard: 320, tall: 440 }[sectionGraphHeights[section] || (isRecycleReport(section) ? 'compact' : 'standard')])
+  const getSectionGraphPreset = section => {
+    const value=sectionGraphHeights[section]
+    if(Number.isFinite(value)) return value<=260?'compact':value>=380?'tall':'standard'
+    return value || (isRecycleReport(section) ? 'compact' : 'standard')
+  }
+  const getSectionGraphHeight = section => Number.isFinite(sectionGraphHeights[section]) ? sectionGraphHeights[section] : ({ compact: 240, standard: 320, tall: 440 }[getSectionGraphPreset(section)])
   const setSectionGraphHeight = (section, height) => setSectionGraphHeights(current => ({ ...current, [section]: height }))
   const getSectionGridColumn = section => {
     if (expandedSection === section) return '1 / -1'
@@ -315,7 +326,7 @@ export default function AnnualLedger({ permissions = [] }) {
         </label>
       )}
       <label>ความสูงกราฟ
-        <select value={sectionGraphHeights[section] || (isRecycleReport(section) ? 'compact' : 'standard')} onChange={event => setSectionGraphHeight(section, event.target.value)}>
+        <select value={getSectionGraphPreset(section)} onChange={event => setSectionGraphHeight(section, event.target.value)}>
           <option value="compact">เตี้ย</option>
           <option value="standard">มาตรฐาน</option>
           <option value="tall">สูง</option>
@@ -3265,7 +3276,7 @@ export default function AnnualLedger({ permissions = [] }) {
       )}
 
       {/* DETAIL DRILL-DOWN DRAWER OVERLAY */}
-      {reportStudioSection&&<ReportStudio section={reportStudioSection} onClose={()=>setReportStudioSection(null)}/>}
+      {reportStudioSection&&<ReportStudio section={reportStudioSection} initialChartSize={getSectionGraphHeight(reportStudioSection)} onChartSizeChange={value=>setSectionGraphHeight(reportStudioSection,value)} onClose={()=>setReportStudioSection(null)}/>}
 
       {isDrawerOpen && drillDownParams && (
         <div style={{
