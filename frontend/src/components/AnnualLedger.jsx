@@ -36,14 +36,6 @@ const normalizeBagCode = value => {
 }
 
 const MONTH_POINT_COLORS = ['#0f766e', '#2563eb', '#d97706', '#dc2626', '#7c3aed', '#0891b2', '#65a30d', '#db2777', '#4f46e5', '#ea580c', '#059669', '#9333ea']
-const REPORT_SIZE_PRESETS = {
-  compact:{ label:'กะทัดรัดสำหรับครอป', width:62, height:240, scale:.9 },
-  landscape:{ label:'แนวนอนกราฟและตาราง', width:84, height:330, scale:1 },
-  powerpoint:{ label:'PowerPoint 16:9', width:100, height:420, scale:1.12 },
-  standard:{ label:'รายงาน 4:3', width:78, height:400, scale:1.06 }
-}
-const readReportSetting = (key, fallback = {}) => { try { return JSON.parse(localStorage.getItem(key) || '') || fallback } catch { return fallback } }
-
 function AdaptiveAccumulatedChart({ data, monthsCount, series, tooltipFormatter, left = -20, colorByMonth = false }) {
   if (!data.length) {
     return <div className="empty-state" style={{ height: '100%', display: 'grid', placeItems: 'center' }}>ยังไม่มีข้อมูลที่บันทึกในช่วงเดือนนี้</div>
@@ -189,29 +181,22 @@ export default function AnnualLedger({ permissions = [] }) {
   const [showFeedChart, setShowFeedChart] = useState(true)
   const [showRecycleChart, setShowRecycleChart] = useState(true)
   const [expandedSection, setExpandedSection] = useState(null)
-  const [sectionWidths, setSectionWidths] = useState(() => readReportSetting('ckap-ledger-section-widths'))
-  const [sectionGraphHeights, setSectionGraphHeights] = useState(() => readReportSetting('ckap-ledger-section-heights'))
-  const [sectionFontScales, setSectionFontScales] = useState(() => readReportSetting('ckap-ledger-section-font-scales'))
-  const [sectionPresets, setSectionPresets] = useState(() => readReportSetting('ckap-ledger-section-presets'))
-  const resizeCleanupRef = useRef(null)
+  const [sectionLayouts, setSectionLayouts] = useState({})
+  const [sectionGraphHeights, setSectionGraphHeights] = useState({})
 
   const openSectionPopup = section => {
     setExpandedSection(section)
   }
   const closeSectionPopup = () => setExpandedSection(null)
-  const getSectionGraphHeight = section => Number(sectionGraphHeights[section] || 320)
+  const getSectionLayout = section => sectionLayouts[section] || 'full'
+  const setSectionLayout = (section, layout) => setSectionLayouts(current => ({ ...current, [section]: layout }))
+  const getSectionGraphHeight = section => ({ compact: 240, standard: 320, tall: 440 }[sectionGraphHeights[section] || 'standard'])
   const setSectionGraphHeight = (section, height) => setSectionGraphHeights(current => ({ ...current, [section]: height }))
-  const getSectionGridColumn = () => '1 / -1'
-  const getSectionCardStyle = section => expandedSection===section?{}:{ width:`${sectionWidths[section]||100}%`, justifySelf:'center', '--report-font-scale':sectionFontScales[section]||1 }
-  const applySectionPreset = (section, presetName) => { const preset=REPORT_SIZE_PRESETS[presetName]; if(!preset)return; setSectionWidths(current=>({...current,[section]:preset.width})); setSectionGraphHeight(section,preset.height); setSectionFontScales(current=>({...current,[section]:preset.scale})); setSectionPresets(current=>({...current,[section]:presetName})) }
-  const resetSectionSize = section => { setSectionWidths(current=>({...current,[section]:100})); setSectionGraphHeight(section,320); setSectionFontScales(current=>({...current,[section]:1})); setSectionPresets(current=>({...current,[section]:'custom'})) }
-  const startSectionResize = (section,event) => { event.preventDefault(); const grid=event.currentTarget.closest('.ledger-report-grid'); const gridWidth=grid?.getBoundingClientRect().width||window.innerWidth; const startX=event.clientX,startY=event.clientY,startWidth=sectionWidths[section]||100,startHeight=getSectionGraphHeight(section); resizeCleanupRef.current?.(); const move=next=>{const width=Math.max(45,Math.min(100,startWidth+((next.clientX-startX)/gridWidth*100)));const height=Math.max(220,Math.min(540,startHeight+(next.clientY-startY)));setSectionWidths(current=>({...current,[section]:Number(width.toFixed(1))}));setSectionGraphHeight(section,Math.round(height));setSectionFontScales(current=>({...current,[section]:Number(Math.max(.85,Math.min(1.22,(width/84+height/330)/2)).toFixed(2))}));setSectionPresets(current=>({...current,[section]:'custom'}))};const stop=()=>{window.removeEventListener('pointermove',move);window.removeEventListener('pointerup',stop);document.body.classList.remove('ledger-resizing');resizeCleanupRef.current=null};resizeCleanupRef.current=stop;document.body.classList.add('ledger-resizing');window.addEventListener('pointermove',move);window.addEventListener('pointerup',stop) }
-
-  useEffect(()=>{localStorage.setItem('ckap-ledger-section-widths',JSON.stringify(sectionWidths))},[sectionWidths])
-  useEffect(()=>{localStorage.setItem('ckap-ledger-section-heights',JSON.stringify(sectionGraphHeights))},[sectionGraphHeights])
-  useEffect(()=>{localStorage.setItem('ckap-ledger-section-font-scales',JSON.stringify(sectionFontScales))},[sectionFontScales])
-  useEffect(()=>{localStorage.setItem('ckap-ledger-section-presets',JSON.stringify(sectionPresets))},[sectionPresets])
-  useEffect(()=>()=>resizeCleanupRef.current?.(),[])
+  const getSectionGridColumn = section => {
+    if (expandedSection === section) return '1 / -1'
+    return `span ${{ third: 2, half: 3, full: 6 }[getSectionLayout(section)]}`
+  }
+  const getSectionCardStyle = () => ({})
 
   useEffect(() => {
     if (!expandedSection) return undefined
@@ -229,20 +214,26 @@ export default function AnnualLedger({ permissions = [] }) {
   const renderSectionControls = section => (
     <div className="ledger-section-controls">
       {expandedSection !== section && (
-        <label>ขนาดรายงาน
-          <select value={sectionPresets[section] || 'custom'} onChange={event => event.target.value==='custom'?null:applySectionPreset(section,event.target.value)}>
-            <option value="custom">กำหนดเอง</option>
-            {Object.entries(REPORT_SIZE_PRESETS).map(([value,preset])=><option key={value} value={value}>{preset.label}</option>)}
+        <label>ขนาดการ์ด
+          <select value={getSectionLayout(section)} onChange={event => setSectionLayout(section, event.target.value)}>
+            <option value="third">1/3 แถว</option>
+            <option value="half">1/2 แถว</option>
+            <option value="full">เต็มแถว</option>
           </select>
         </label>
       )}
-      {expandedSection!==section&&<button type="button" className="btn secondary small" onClick={()=>resetSectionSize(section)}>คืนค่าขนาด</button>}
+      <label>ความสูงกราฟ
+        <select value={sectionGraphHeights[section] || 'standard'} onChange={event => setSectionGraphHeight(section, event.target.value)}>
+          <option value="compact">เตี้ย</option>
+          <option value="standard">มาตรฐาน</option>
+          <option value="tall">สูง</option>
+        </select>
+      </label>
       {expandedSection === section ? (
         <button type="button" className="btn danger small" onClick={closeSectionPopup}>กลับหน้ารวม</button>
       ) : (
         <button type="button" className="btn secondary small" onClick={() => openSectionPopup(section)}><BarChart3 size={14} /> ขยายเต็มหน้า</button>
       )}
-      {expandedSection!==section&&<button type="button" className="ledger-resize-handle" role="separator" aria-label="ลากเพื่อปรับความกว้างและความสูง" onPointerDown={event=>startSectionResize(section,event)}><span>↘</span></button>}
     </div>
   )
 

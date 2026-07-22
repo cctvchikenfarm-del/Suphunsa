@@ -572,10 +572,6 @@ tr:last-child td { border-bottom: 0; }
 .ledger-report-grid { display:grid; grid-template-columns:repeat(6, minmax(0, 1fr)); gap:30px; }
 .ledger-report-grid > .card { grid-column:1 / -1; min-width:0; }
 .ledger-analysis-card { position:relative; }
-.ledger-analysis-card h3 { font-size:clamp(14px,calc(16px * var(--report-font-scale,1)),22px) !important; }
-.ledger-analysis-card p, .ledger-analysis-card .muted { font-size:clamp(11px,calc(12.5px * var(--report-font-scale,1)),16px) !important; }
-.ledger-analysis-card table { font-size:clamp(11px,calc(13px * var(--report-font-scale,1)),16px) !important; }
-.ledger-analysis-card .recharts-text { font-size:clamp(10px,calc(12px * var(--report-font-scale,1)),15px) !important; }
 .ledger-analysis-card .table-container { max-width:100%; overflow-x:auto !important; scrollbar-gutter:stable; }
 .ledger-analysis-card .table-container table { min-width:max-content; }
 .ledger-analysis-card .table { border:1px solid #cbd5e1; border-radius:14px; overflow:hidden; }
@@ -590,9 +586,6 @@ tr:last-child td { border-bottom: 0; }
 .ledger-section-controls label { display:flex; flex-direction:column; gap:3px; color:#64748b; font-size:10px; font-weight:800; }
 .ledger-section-controls select { min-height:32px; padding:5px 28px 5px 8px; border:1px solid #cbd5e1; border-radius:9px; background:#fff; color:#0f172a; font-size:11px; font-weight:800; }
 .ledger-section-controls .btn { min-height:32px; border-radius:9px; font-size:11px; padding:6px 10px; display:flex; align-items:center; gap:5px; }
-.ledger-resize-handle { position:absolute; right:7px; bottom:7px; z-index:8; width:32px; height:32px; display:grid; place-items:center; border:1px solid #5eead4; border-radius:10px; background:#f0fdfa; color:#0f766e; cursor:nwse-resize; font-size:18px; font-weight:900; touch-action:none; box-shadow:0 4px 12px rgba(15,118,110,.16); }
-.ledger-resize-handle:hover { background:#ccfbf1; border-color:#0f766e; }
-.ledger-resizing, .ledger-resizing * { cursor:nwse-resize !important; user-select:none !important; }
 @keyframes ledger-popup-in { from { opacity:0; transform:translateY(10px) scale(.99); } to { opacity:1; transform:none; } }
 @media (max-width: 720px) {
   .ledger-range-control { min-width:100%; width:100%; }
@@ -602,7 +595,6 @@ tr:last-child td { border-bottom: 0; }
   .ledger-report-grid { grid-template-columns:1fr; gap:20px; }
   .ledger-report-grid > .card, .ledger-analysis-card { grid-column:1 / -1 !important; }
   .ledger-analysis-card { width:100% !important; }
-  .ledger-resize-handle { display:none; }
   .ledger-section-controls { width:100%; justify-content:stretch; }
   .ledger-section-controls label, .ledger-section-controls .btn { flex:1 1 120px; }
   .ledger-section-controls select { width:100%; }
