@@ -49,7 +49,7 @@ export default function ChartBuilder({ permissions = [], user }) {
   const [groupBy, setGroupBy] = useState('monthly')
   const [chartType, setChartType] = useState('bar')
   const [colors, setColors] = useState({})
-  const [showTable, setShowTable] = useState(false)
+  const [showTable, setShowTable] = useState(true)
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [showColors, setShowColors] = useState(false)
   const [showReportStudio, setShowReportStudio] = useState(false)
@@ -247,8 +247,8 @@ export default function ChartBuilder({ permissions = [], user }) {
       )}
 
       {!allZero && !incompatible && (
-        <>
-          <div className="card custom-chart-preview" data-report-section="chart-builder">
+        <div data-report-section="chart-builder" className="chart-builder-section-wrapper">
+          <div className="card custom-chart-preview">
             <div className="chart-step-heading">
               <span>2</span>
               <div>
@@ -258,9 +258,7 @@ export default function ChartBuilder({ permissions = [], user }) {
               <span className="chart-type-badge">{chartType.toUpperCase()}</span>
             </div>
 
-            {/* Chart area — NO built-in <Legend> inside ResponsiveContainer.
-                Recharts Legend uses position:absolute and cannot handle multi-row layouts
-                without overlapping the plot area when many series are selected. */}
+            {/* Chart area */}
             <div ref={chartExportRef} className="chart-preview-box large report-chart-frame">
               {chartType === 'bar' && (
                 <ResponsiveContainer width="100%" height="100%">
@@ -308,8 +306,7 @@ export default function ChartBuilder({ permissions = [], user }) {
               )}
             </div>
 
-            {/* Custom HTML Legend — outside SVG/wrapper, never overlaps plot area,
-                wraps naturally to as many rows as needed */}
+            {/* Custom HTML Legend */}
             <ChartLegend series={resultSeries} colors={colors}/>
 
             <div className="chart-preview-tools">
@@ -338,7 +335,7 @@ export default function ChartBuilder({ permissions = [], user }) {
           )}
 
           {showTable && (
-            <div className="card chart-data-table table-container">
+            <div className="card chart-data-table table-container" style={{ marginTop: '18px' }}>
               <div className="section-title-row">
                 <div><h3>ตารางตรวจสอบข้อมูลกราฟ</h3><p className="muted no-margin">ตรวจข้อมูลจริงก่อนนำไปทำรายงาน</p></div>
               </div>
@@ -379,7 +376,6 @@ export default function ChartBuilder({ permissions = [], user }) {
               </div>
             </div>
           )}
-
           <div className="card chart-export-card">
             <div className="chart-step-heading">
               <span>3</span>
@@ -393,7 +389,7 @@ export default function ChartBuilder({ permissions = [], user }) {
               <button type="button" className="btn secondary" onClick={() => handleImageExport('svg')} disabled={!canExport || allZero || incompatible}>SVG</button>
             </div>
           </div>
-        </>
+        </div>
       )}
       {showReportStudio && <ReportStudio section="chart-builder" onClose={() => setShowReportStudio(false)}/>}
     </section>
